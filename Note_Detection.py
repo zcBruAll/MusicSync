@@ -1,0 +1,223 @@
+import librosa
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
+from matplotlib.animation import PillowWriter
+import numpy as np
+
+FPS = 30
+FFT_WINDOWS_SECONDS = 0.25
+FREQ_MIN = 10
+FREQ_MAX = 1000
+TOP_NOTES = 5
+
+NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", 
+              "G", "G#", "A", "A#", "B"]
+
+y, sr = librosa.load("Sounds/Ecossaise_Piano.mp3", mono=True, duration=5)
+
+FRAME_STEP = (sr / FPS)
+FFT_WINDOW_SIZE = int(sr * FFT_WINDOWS_SECONDS)
+AUDIO_LENGTH = len(y) / sr
+
+def freq_to_number(f): return 69 + 12*np.log2(f/440.0)
+def number_to_freq(n): return 440 * 2.0**((n-69)/12.0)
+def note_name(n): return NOTE_NAMES[n % 12] + str(int(n/12 - 1))
+
+# Hanning window
+window = 0.5 * (1 - np.cos(np.linspace(0, 2*np.pi, FFT_WINDOW_SIZE, False)))
+xf = np.fft.rfftfreq(FFT_WINDOW_SIZE, 1/sr)
+FRAME_COUNT = int(AUDIO_LENGTH*FPS)
+FRAME_OFFSET = int(len(y)/FRAME_COUNT)
+
+def extract_sample(audio, frame_number):
+    begin = frame_number * FRAME_OFFSET
+    end = begin + FFT_WINDOW_SIZE
+
+    if begin >= len(audio):
+        return np.zeros(FFT_WINDOW_SIZE, dtype=float)
+
+    if end <= len(audio):
+        return audio[begin:end]
+    else:
+        # tail pad with zeros if we run past the end
+        pad = end - len(audio)
+        return np.concatenate([audio[begin:], np.zeros(pad, dtype=float)])
+
+def find_top_notes(fft, num, min_sep_hz=None, prominence=0.05):
+    """
+    Pick up to `num` spectral peaks that are well separated and prominent.
+    - min_sep_hz: minimum frequency separation between labeled peaks (Hz).
+                  If None, defaults to ~3 FFT bins.
+    - prominence: min (0..1) prominence relative to frame-local max.
+    Returns: list of [freq_hz, note_name, magnitude] (magnitude on your plot's scale).
+    """
+    mag = np.asarray(fft)                 # already on your global scale (fft/mx)
+    if mag.size < 3 or np.max(mag) < 1e-12:
+        return []
+
+    # Use a local-normalized copy for thresholding so 'prominence' is frame-robust
+    mag_norm = mag / (mag.max() + 1e-12)
+
+    # Frequency resolution and min separation in bins
+    df = sr / FFT_WINDOW_SIZE
+    if min_sep_hz is None:
+        min_sep_bins = 3  # ~Hann mainlobe neighborhood
+    else:
+        min_sep_bins = max(1, int(round(min_sep_hz / df)))
+
+    # 1) Find local maxima (strictly greater than left, >= right)
+    peaks = np.where((mag_norm[1:-1] > mag_norm[:-2]) & (mag_norm[1:-1] >= mag_norm[2:]))[0] + 1
+    if peaks.size == 0:
+        return []
+
+    # 2) Simple prominence: peak minus max of neighbors within a small window
+    w = max(1, min_sep_bins // 2)
+    neigh = []
+    for k in range(1, w + 1):
+        left  = mag_norm[np.clip(peaks - k, 0, mag_norm.size - 1)]
+        right = mag_norm[np.clip(peaks + k, 0, mag_norm.size - 1)]
+        neigh.append(left)
+        neigh.append(right)
+    neighbor_max = np.maximum.reduce(neigh) if neigh else np.zeros_like(peaks, dtype=float)
+    prom = mag_norm[peaks] - neighbor_max
+
+    # Keep only sufficiently prominent peaks
+    good = peaks[prom >= prominence]
+    if good.size == 0:
+        return []
+
+    # 3) Sort by strength (use normalized mag for ranking)
+    order = np.argsort(mag_norm[good])[::-1]
+    good = good[order]
+
+    # 4) Non-maximum suppression by frequency separation + unique note names
+    kept_bins = []
+    kept = []
+    kept_names = set()
+
+    for b in good:
+        # enforce min bin separation from already kept peaks
+        if any(abs(b - kb) < min_sep_bins for kb in kept_bins):
+            continue
+
+        f = xf[b]
+        if not (FREQ_MIN <= f <= FREQ_MAX):
+            continue
+
+        n = int(round(freq_to_number(f)))
+        name = note_name(n)
+
+        # optional: avoid duplicate note labels
+        if name in kept_names:
+            continue
+
+        kept.append([f, name, mag[b]])  # mag on your plot's scale
+        kept_bins.append(b)
+        kept_names.add(name)
+        if len(kept) == num:
+            break
+
+    return kept
+
+
+# Pass 1: find max amplitude
+mx = 0
+for frame_number in range(FRAME_COUNT):
+    sample = extract_sample(y, frame_number)
+    fft = np.fft.rfft(sample * window)
+    fft = np.abs(fft).real 
+    mx = max(np.max(fft),mx)
+
+print(f"Max amplitude: {mx}")
+
+f0, vflag, vprob = librosa.pyin(
+    y=y,
+    sr=sr,
+    fmin=librosa.note_to_hz("C2"),
+    fmax=librosa.note_to_hz("C7"),
+    frame_length=FFT_WINDOW_SIZE,
+    hop_length=FRAME_OFFSET,
+    center=False
+)
+
+# --- LIVE MATPLOTLIB ANIMATION ---
+# plt.ion()  # interactive mode ON
+fig, ax = plt.subplots(figsize=(12,6), dpi=120)
+line, = ax.plot([], [], lw=2)
+f0_line = ax.axvline(x=0, lw=2, ls="--", label="f0")
+harm_lines = [ax.axvline(x=0, lw=1, ls=":", alpha=0.6) for _ in range(5)]  # 2nd..6th
+# Text label for the f0 note at the top of the axes
+y_top = ax.get_ylim()[1]
+text_xform = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
+f0_text = ax.text(
+    0, 0.98, "", transform=text_xform,  # 0.98 keeps it inside the box
+    ha="left", va="top",
+    fontsize=12, color="tab:blue",
+    bbox=dict(facecolor="white", alpha=0.6, edgecolor="none"),
+    clip_on=False, zorder=10
+)
+f0_text.set_visible(False)
+ax.set_xlim(FREQ_MIN, FREQ_MAX)
+ax.set_ylim(0, 1)
+ax.set_xlabel("Frequency (Hz)")
+ax.set_ylabel("Magnitude")
+ax.set_title("Real-time Frequency Spectrum")
+ax.legend()
+text_annotations = []
+
+writer = PillowWriter(fps=FPS)
+with writer.saving(fig, "Output/spectrum.gif", dpi=120):
+    for frame_number in range(FRAME_COUNT):
+        sample = extract_sample(y, frame_number)
+        fft = np.fft.rfft(sample * window)
+        fft = np.abs(fft) / mx 
+        
+        # update line
+        line.set_data(xf, fft)
+        
+        f0_val = f0[frame_number] if frame_number < len(f0) else np.nan
+        if f0_val is not None and not np.isnan(f0_val):
+            f0_line.set_xdata([f0_val, f0_val])
+            f0_line.set_visible(True)
+            # move harmonics
+            h = 2
+            for hline in harm_lines:
+                x = h * f0_val
+                hline.set_xdata([x, x])
+                hline.set_visible(FREQ_MIN <= x <= FREQ_MAX)
+                h += 1
+                
+            note_name_str = note_name(int(round(freq_to_number(f0_val))))
+            if note_name_str:
+                label = f"{note_name_str}"
+                x_min, x_max = ax.get_xlim()
+                x_pos = float(np.clip(f0_val, x_min, x_max))
+                f0_text.set_ha("right" if x_pos > (x_min + x_max) / 2 else "left")
+                f0_text.set_position((x_pos, 0.98))  # y in axes fraction
+                f0_text.set_text(label)
+                f0_text.set_visible(True)
+            else:
+                f0_text.set_visible(False)
+
+        else:
+            f0_line.set_visible(False)
+            for hline in harm_lines:
+                hline.set_visible(False)
+            f0_text.set_visible(False)
+        
+            
+        for txt in text_annotations: 
+            txt.remove()
+        text_annotations = []
+        
+        # add new top notes
+        s = find_top_notes(fft, TOP_NOTES, min_sep_hz=3*(sr/FFT_WINDOW_SIZE), prominence=0.05)
+        for note in s:
+            txt = ax.text(note[0], note[2], note[1], color="red", fontsize=12)
+            text_annotations.append(txt)
+        
+        #plt.pause(1/FPS)
+        writer.grab_frame()
+
+#plt.ioff()
+#plt.show()
