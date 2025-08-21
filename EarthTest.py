@@ -11,6 +11,8 @@ height = 1080
 screen = pygame.display.set_mode((width, height))
 clock = pygame.time.Clock()
 running = True
+pygame.mixer.music.load("Sounds/PinkPanther.midi")
+pygame.mixer.music.play()
 
 
 #Function to calculate the curve
@@ -35,7 +37,7 @@ class Sattelite:
         self.drawingCoordinates = (self.p1,self.p2,self.p3)
         self.lifeOfNote = float(endOfNote - startOfNote)
         self.tTL = int(self.lifeOfNote * 200)
-        self.speed = int(noteVelocity/30)
+        self.speed = int(noteVelocity/15)
         self.color = (255,255,255)
 
     def move(self):
@@ -115,7 +117,7 @@ for y in range(rows):
 satteliteList = []
 
 timer = 0
-videoTimer = 0
+videoTimer = -(15*float(1/60))
 soonestNote = 0
 
 # Load MIDI file into PrettyMIDI object
@@ -124,7 +126,7 @@ midi_data = pretty_midi.PrettyMIDI('Sounds/PinkPanther.midi')
 instrumentList = midi_data.instruments
 notesList = []
 for x in instrumentList:
-    print(x.program)
+    print(pretty_midi.program_to_instrument_name(x.program))
     notesList.append(x.notes)
 while running:
     for event in pygame.event.get():
@@ -132,8 +134,8 @@ while running:
             running = False
 
     screen.fill((10,10,25))
-    timer += 15
-    videoTimer += 10
+    timer += 1
+    videoTimer += float(1/60)
 
     for x in range(width):
         pygame.draw.line(screen,(0,0,0),(x,curveCalculation(x)),(x+1,curveCalculation(x+1)-10),1)
@@ -150,7 +152,7 @@ while running:
         pygame.draw.polygon(screen,k.color,k.drawingCoordinates)
         k.move()
 
-    if (int((notesList[0][0].start)*100) < int((notesList[1][0].start)*100)):
+    if (((float(notesList[0][0].start))) < ((float(notesList[1][0].start)))):
         soonestNote = 0
     else:
         soonestNote = 1
@@ -163,6 +165,14 @@ while running:
             x[0][0].defineColor()
             x[0][1].defineColor()
         timer = 0
+
+    if (videoTimer >= (float(notesList[soonestNote][0].start))):
+        if (soonestNote == 1):
+            pass #Create trumpet
+        else:
+            pass #Create piano
+        satteliteList.append(Sattelite(notesList[soonestNote][0].start, notesList[soonestNote][0].end,notesList[soonestNote][0].velocity)) #This will move into the 2 categories
+        del notesList[soonestNote][0]
 
 
 
