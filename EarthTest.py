@@ -1,6 +1,7 @@
 import pygame
 import random
 import pretty_midi
+from instruments import *
 
 # pygame setup
 pygame.init()
@@ -125,6 +126,9 @@ midi_data = pretty_midi.PrettyMIDI('Sounds/PinkPanther.midi')
 # Print an empirical estimate of its global tempo
 instrumentList = midi_data.instruments
 notesList = []
+
+notes=[] #satellites list
+
 for x in instrumentList:
     print(pretty_midi.program_to_instrument_name(x.program))
     notesList.append(x.notes)
@@ -132,6 +136,24 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+            
+        elif event.type == pygame.KEYDOWN:
+            y = random.randint(0, height)
+            
+            if event.key == pygame.K_1:
+                x = 0
+                instru = Piano(x,y)
+
+            elif event.key == pygame.K_q:
+                x = width - 20
+                instru = Trumpet(x,y)
+
+            notes.append(instru)
+            
+            # if event.key == pygame.K_1:
+            #     instru.change_color(1)
+            # elif event.key == pygame.K_q:
+            #     instru.change_color(2)    
 
     screen.fill((10,10,25))
     timer += 1
@@ -157,6 +179,13 @@ while running:
     else:
         soonestNote = 1
 
+    #apparition of the sattelite (remove when the lifetime is 0)
+    for n in notes[:]:
+        n.update()
+        if n.life_time <= 0:
+            notes.remove(n)
+        else:
+            n.draw(screen)
 
 
 
@@ -173,10 +202,6 @@ while running:
             pass #Create piano
         satteliteList.append(Sattelite(notesList[soonestNote][0].start, notesList[soonestNote][0].end,notesList[soonestNote][0].velocity)) #This will move into the 2 categories
         del notesList[soonestNote][0]
-
-
-
-
 
 
     pygame.display.flip()
