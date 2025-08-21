@@ -1,7 +1,7 @@
 import pygame
 import random
 import pretty_midi
-from instruments import *
+import Instruments
 
 # pygame setup
 pygame.init()
@@ -137,23 +137,6 @@ while running:
         if event.type == pygame.QUIT:
             running = False
             
-        elif event.type == pygame.KEYDOWN:
-            y = random.randint(0, height)
-            
-            if event.key == pygame.K_1:
-                x = 0
-                instru = Piano(x,y)
-
-            elif event.key == pygame.K_q:
-                x = width - 20
-                instru = Trumpet(x,y)
-
-            notes.append(instru)
-            
-            # if event.key == pygame.K_1:
-            #     instru.change_color(1)
-            # elif event.key == pygame.K_q:
-            #     instru.change_color(2)    
 
     screen.fill((10,10,25))
     timer += 1
@@ -196,11 +179,14 @@ while running:
         timer = 0
 
     if (videoTimer >= (float(notesList[soonestNote][0].start))):
-        if (soonestNote == 1):
-            pass #Create trumpet
-        else:
-            pass #Create piano
-        satteliteList.append(Sattelite(notesList[soonestNote][0].start, notesList[soonestNote][0].end,notesList[soonestNote][0].velocity)) #This will move into the 2 categories
+        y = random.randint(0, height)
+        if (soonestNote == 1 and not notesList[1] == []):
+            x = 0
+            instru = Instruments.Piano(x,y)
+        elif (not notesList[0] == []):
+            x = width - 20
+            instru = Instruments.Trumpet(x,y)
+        notes.append(instru)
         del notesList[soonestNote][0]
 
 
