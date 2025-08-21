@@ -119,7 +119,7 @@ videoTimer = 0
 soonestNote = 0
 
 # Load MIDI file into PrettyMIDI object
-midi_data = pretty_midi.PrettyMIDI('Files/PinkPanther.midi')
+midi_data = pretty_midi.PrettyMIDI('Sounds/PinkPanther.midi')
 # Print an empirical estimate of its global tempo
 instrumentList = midi_data.instruments
 notesList = []
