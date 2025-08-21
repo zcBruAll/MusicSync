@@ -148,10 +148,10 @@ while running:
 
             notes.append(instru)
             
-            if event.key == pygame.K_1:
-                instru.change_color(1)
-            elif event.key == pygame.K_q:
-                instru.change_color(2)    
+            # if event.key == pygame.K_1:
+            #     instru.change_color(1)
+            # elif event.key == pygame.K_q:
+            #     instru.change_color(2)    
 
     screen.fill((10,10,25))
     timer += 15
@@ -192,10 +192,6 @@ while running:
             x[0][0].defineColor()
             x[0][1].defineColor()
         timer = 0
-
-
-
-
 
 
     pygame.display.flip()
