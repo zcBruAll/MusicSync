@@ -4,8 +4,8 @@ import numpy as np
 
 from collections import defaultdict
 
-midi_ref = pretty_midi.PrettyMIDI('./Sounds/Ecossaise_Beethoven.mid')
-midi_created = pretty_midi.PrettyMIDI('./Sounds/all_converted.mid')
+midi_ref = pretty_midi.PrettyMIDI('./Output/Ecossaise_Beethoven.mid')
+midi_created = pretty_midi.PrettyMIDI('./Output/Ecossaise_converted.mid')
 instruments = []
 
 def pre_traitement_notes(notes_ref, notes_created, tol=0.05):
