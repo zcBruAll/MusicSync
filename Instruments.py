@@ -2,11 +2,11 @@ import pygame
 import random
 
 class Instrument():
-    def __init__(self, x, y):
+    def __init__(self, x, y,noteLifeTime):
         self.x = x
         self.y = y
         self.size = 20
-        self.life_time = random.randint(100, 400) #duration of the note
+        self.life_time = random.randint(100, noteLifeTime*12) #duration of the note
         self.dx = 0
 
         # self.color = (255, 255, 255) #default white
@@ -26,7 +26,7 @@ class Instrument():
         
 class Piano(Instrument):
     def update(self):
-        self.dx += 1
+        self.dx += 2
         return super().update()
     
     def draw(self, surface):
@@ -36,7 +36,7 @@ class Piano(Instrument):
     
 class Trumpet(Instrument):
     def update(self):
-        self.dx -= 1   
+        self.dx -= 2
         return super().update()
     
     def draw(self, surface):

@@ -3,51 +3,35 @@ import random
 import pretty_midi
 import Instruments
 
-# pygame setup
 pygame.init()
 
-width = 1920
-height = 1080
 
-screen = pygame.display.set_mode((width, height))
-clock = pygame.time.Clock()
-running = True
-pygame.mixer.music.load("Sounds/PinkPanther.midi")
-pygame.mixer.music.play()
-
-
-#Function to calculate the curve
+#       Functions
 def curveCalculation(x):
     return 1080 - ((x/3200)*(1920-x) + 100)
     # 1080 - the result so that it creates the curve at the bottom of the screen and not at the top
 
 
-#Config of the triangles
+#       Config
+width = 1920
+height = 1080
+
 spacing = 24
 scale = 20.0
 cols = int(width/spacing)+1
 rows = int((curveCalculation(960))/spacing)+1
+running = True
+
+notesList = []
+triangleList = []
+notes=[] #satellites list
+
+timer = 0
+videoTimer = -(15*float(1/60))
+soonestNote = 0
 
 
-
-class Sattelite:
-    def __init__(self, startOfNote, endOfNote, noteVelocity):
-        self.p1 = [0,random.randint(0,1080)]
-        self.p2 = [0,random.randint(0,1080)]
-        self.p3 = [150,random.randint(0,1080)]
-        self.drawingCoordinates = (self.p1,self.p2,self.p3)
-        self.lifeOfNote = float(endOfNote - startOfNote)
-        self.tTL = int(self.lifeOfNote * 200)
-        self.speed = int(noteVelocity/15)
-        self.color = (255,255,255)
-
-    def move(self):
-        self.p1[0] += self.speed
-        self.p2[0] += self.speed
-        self.p3[0] += self.speed
-
-
-
+#       Classes
 class EarthTriangle:
     def __init__(self,p1 : tuple, p2 : tuple, p3 : tuple):
         self.p1 = list(p1)
@@ -63,7 +47,7 @@ class EarthTriangle:
     #This function is used to redefine a new random color
     #It's used at the start and every time the earth "rotates" so that we don't just have lines of color
     def defineColor(self):
-        if (random.random() < 0.03):
+        if (random.random() < 0.1):
             self.rgb1 = 0
             self.rgb2 = random.randint(0,100)
             self.rgb3 = random.randint(250,255)
@@ -79,13 +63,15 @@ class EarthTriangle:
         self.rgb3 = upEarthTriangle.rgb3
         self.color = (self.rgb1, self.rgb2, self.rgb3)
 
-    
 
-    
-        
 
-#Creating all the triangles before the loop makes for a wayy better performance
-triangleList = []
+#       Initialization
+screen = pygame.display.set_mode((width, height))
+clock = pygame.time.Clock()
+pygame.mixer.music.load("Sounds/PinkPanther.midi")
+pygame.mixer.music.play()
+
+#Creating all the triangles before the loop makes for a way better performance
 for y in range(rows):
     tempList = []
     for x in range(cols):
@@ -115,23 +101,26 @@ for y in range(rows):
     #Here we create a list of lists with inside each tuple of EarthTriangles that form a rectangle
     #It's made like this to easily access the colors of nearby triangles
 
-satteliteList = []
-
-timer = 0
-videoTimer = -(15*float(1/60))
-soonestNote = 0
-
 # Load MIDI file into PrettyMIDI object
 midi_data = pretty_midi.PrettyMIDI('Sounds/PinkPanther.midi')
 # Print an empirical estimate of its global tempo
 instrumentList = midi_data.instruments
-notesList = []
-
-notes=[] #satellites list
 
 for x in instrumentList:
     print(pretty_midi.program_to_instrument_name(x.program))
     notesList.append(x.notes)
+
+#Calculating the max pitch and min pitch
+maxPitch = 0
+minPitch = notesList[0][0].pitch
+for k in notesList:
+    for i in k:
+        if(i.pitch > maxPitch):
+            maxPitch = i.pitch
+        elif (i.pitch < minPitch):
+            minPitch = i.pitch
+
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -153,16 +142,13 @@ while running:
                 i[j][1].changeColor(i[j][0])
                 i[j][0].changeColor(i[j-1][1])
 
-    for k in satteliteList:
-        pygame.draw.polygon(screen,k.color,k.drawingCoordinates)
-        k.move()
 
     if (((float(notesList[0][0].start))) < ((float(notesList[1][0].start)))):
         soonestNote = 0
     else:
         soonestNote = 1
 
-    #apparition of the sattelite (remove when the lifetime is 0)
+    #apparition of the satellites (remove when the lifetime is 0)
     for n in notes[:]:
         n.update()
         if n.life_time <= 0:
@@ -179,13 +165,15 @@ while running:
         timer = 0
 
     if (videoTimer >= (float(notesList[soonestNote][0].start))):
-        y = random.randint(0, height)
+        y = int((notesList[soonestNote][0].pitch-minPitch)*(int(1080/(maxPitch-minPitch))))
+        if(y > height):
+            y = height
         if (soonestNote == 1 and not notesList[1] == []):
             x = 0
-            instru = Instruments.Piano(x,y)
+            instru = Instruments.Piano(x,y,notesList[soonestNote][0].velocity)
         elif (not notesList[0] == []):
             x = width - 20
-            instru = Instruments.Trumpet(x,y)
+            instru = Instruments.Trumpet(x,y,notesList[soonestNote][0].velocity)
         notes.append(instru)
         del notesList[soonestNote][0]
 
