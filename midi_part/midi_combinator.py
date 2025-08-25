@@ -2,7 +2,7 @@ import pretty_midi
 
 midi_files = [
     pretty_midi.PrettyMIDI('./Output/Im_Ecossaise_piano.mid'),
-    # pretty_midi.PrettyMIDI('./Sounds/Ecossaise_trumpet.mid')
+    pretty_midi.PrettyMIDI('./Sounds/Im_Ecossaise_trumpet.mid')
 ]
 midi = pretty_midi.PrettyMIDI()
 
