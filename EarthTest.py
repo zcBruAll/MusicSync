@@ -1,7 +1,8 @@
 import pygame
 import random
 import pretty_midi
-import Instruments
+from Objects.Satellite import Satellite
+from Objects.Alien import Alien
 
 pygame.init()
 
@@ -24,7 +25,7 @@ running = True
 
 notesList = []
 triangleList = []
-notes=[] #satellites list
+objects =[] #satellites list
 
 timer = 0
 videoTimer = -(15*float(1/60))
@@ -148,13 +149,13 @@ while running:
     else:
         soonestNote = 1
 
-    #apparition of the satellites (remove when the lifetime is 0)
-    for n in notes[:]:
-        n.update()
-        if n.life_time <= 0:
-            notes.remove(n)
+    #draw satellites and aliens
+    for obj in objects[:]:
+        obj.update()
+        if obj.life_time <= 0:
+            objects.remove(obj)
         else:
-            n.draw(screen)
+            obj.draw(screen)
 
 
 
@@ -170,11 +171,11 @@ while running:
             y = height
         if (soonestNote == 1 and not notesList[1] == []):
             x = 0
-            instru = Instruments.Piano(x,y,notesList[soonestNote][0].velocity)
+            instru = Satellite(x,y)     #notesList[soonestNote][0].velocity
         elif (not notesList[0] == []):
             x = width - 20
-            instru = Instruments.Trumpet(x,y,notesList[soonestNote][0].velocity)
-        notes.append(instru)
+            instru = Alien(x,y)    #notesList[soonestNote][0].velocity
+        objects.append(instru)
         del notesList[soonestNote][0]
 
 
