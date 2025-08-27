@@ -1,8 +1,8 @@
 import pretty_midi
 
 midi_files = [
-    pretty_midi.PrettyMIDI('./Output/Im_Ecossaise_piano.mid'),
-    pretty_midi.PrettyMIDI('./Sounds/Im_Ecossaise_trumpet.mid')
+    pretty_midi.PrettyMIDI('./Output/detected_notes0.mid'),
+    pretty_midi.PrettyMIDI('./Output/detected_notes73.mid')
 ]
 midi = pretty_midi.PrettyMIDI()
 
@@ -19,5 +19,4 @@ for midi_file in midi_files:
     midi.instruments.append(instrument)
     
 output_filename = f"./Output/Ecossaise_converted.mid"
-
-midi_file.write(output_filename)
+midi.write(output_filename)
