@@ -9,28 +9,30 @@ from scipy.signal import find_peaks
 from collections import defaultdict
 import mido
 from mido import MidiFile, MidiTrack, Message
+import time
 
 # -------------------- Config --------------------
-INPUT_FILE = "Sounds/Ecossaise_Piano.mp3" # File name and path of the input file
+INPUT_FILE = "Sounds/Ecossaise_Both.mp3" # File name and path of the input file
 OUTPUT_GIF = "Output/analysis.gif"      # File name and path of the outputed gif
-OUTPUT_MIDI = "Output/detected_notes.mid"  # File name and path of the output MIDI file
+OUTPUT_MIDI = "Output/detected_notes"  # File name and path of the output MIDI file
+
+ENABLE_ANIMATION = False
 
 FPS = 30                                # frames per second of the animation
-FFT_WINDOWS_SECONDS = 0.125             # REDUCED from 0.25 - smaller window for faster detection
+FFT_WINDOWS_SECONDS = 0.125          # Smaller window for faster detection
 FREQ_MIN = 10                           # Hz
 FREQ_MAX = 2000                         # Hz
 TOP_NOTES = 5                           # number of strongest notes to annotate
 
 # Polyphonic detection parameters
-MIN_PEAK_HEIGHT = 0.02                  # REDUCED threshold for earlier detection
+MIN_PEAK_HEIGHT = 0.02
 MIN_PEAK_DISTANCE = 1                   # minimum distance between peaks (in bins)
 MAX_HARMONICS = 8                       # maximum number of harmonics to consider
 HARMONIC_TOLERANCE = 0.05               # tolerance for harmonic matching (as fraction)
 
-# Note timing and smoothing parameters - UPDATED FOR FASTER RESPONSE
-SMOOTHING_TIME = 0.15                   # REDUCED from 0.25 - less gap tolerance for faster response
-MIN_NOTE_DURATION = 0.05                # REDUCED from 0.1 - shorter minimum duration
-DETECTION_THRESHOLD = 0.2               # REDUCED from 0.3 - lower threshold for earlier detection
+SMOOTHING_TIME = 0.15
+MIN_NOTE_DURATION = 0.05
+DETECTION_THRESHOLD = 0.15
 
 # MIDI export parameters
 MIDI_TEMPO_BPM = 120                    # BPM for MIDI file
@@ -39,9 +41,12 @@ MIDI_VELOCITY_MAX = 127                 # maximum MIDI velocity
 MIDI_PROGRAM = 0                        # MIDI program (0 = Acoustic Grand Piano)
 
 # -------------------- Load & preprocess --------------------
-y, sr = librosa.load(INPUT_FILE, mono=True)
+print("Loading and preprocessing audio...")
+start_time = time.time()
+
+y_h, sr = librosa.load(INPUT_FILE, mono=True)
 # harmonic component only (librosa HPSS)
-y_h = librosa.effects.harmonic(y)
+# y_h = librosa.effects.harmonic(y)
 
 # STFT params derived from config
 N_FFT = int(sr * FFT_WINDOWS_SECONDS)
@@ -68,7 +73,8 @@ onset_frames = librosa.onset.onset_detect(
     y=y_h, sr=sr, hop_length=HOP, 
     pre_max=0.03, post_max=0.03,  # Short pre/post max for faster response
     pre_avg=0.1, post_avg=0.1,
-    delta=0.05, wait=0.03  # Shorter wait time
+    delta=0.05, wait=0.03, # Shorter wait time
+    backtrack=True
 )
 onset_times = librosa.frames_to_time(onset_frames, sr=sr, hop_length=HOP)
 
@@ -84,11 +90,14 @@ f0, vflag, vprob = librosa.pyin(
     center=False
 )
 
+print(f"Audio preprocessing completed in {time.time() - start_time:.2f} seconds")
+
 # -------------------- Note Timing and Smoothing Classes --------------------
 
 class NoteEvent:
-    def __init__(self, note_name, frequency, start_time, strength):
+    def __init__(self, note_name, isPiano, frequency, start_time, strength):
         self.note_name = note_name
+        self.isPiano = isPiano
         self.frequency = frequency
         self.start_time = start_time
         self.end_time = start_time
@@ -131,17 +140,17 @@ class NoteTracker:
         """
         # Convert to dict for easier lookup
         current_detections = {}
-        for freq, strength, note_name in detected_notes:
+        for freq, strength, note_name, isPiano in detected_notes:
             if strength >= self.detection_threshold:
                 key = self._get_note_key(note_name, freq)
-                current_detections[key] = (note_name, freq, strength)
+                current_detections[key] = (note_name, isPiano, freq, strength)
         
         # Update existing notes or mark for potential closure
         notes_to_remove = []
         for key, note_event in self.active_notes.items():
             if key in current_detections:
                 # Note is still being detected
-                note_name, freq, strength = current_detections[key]
+                note_name, isPiano, freq, strength = current_detections[key]
                 note_event.update(current_time, strength)
             else:
                 # Note not detected this frame
@@ -158,7 +167,7 @@ class NoteTracker:
             del self.active_notes[key]
         
         # Add new notes with onset-based timing adjustment
-        for key, (note_name, freq, strength) in current_detections.items():
+        for key, (note_name, isPiano, freq, strength) in current_detections.items():
             if key not in self.active_notes:
                 # Adjust start time if we're likely detecting late
                 adjusted_start_time = current_time
@@ -167,7 +176,7 @@ class NoteTracker:
                 if strength > self.detection_threshold * 1.5:  # Strong signal suggests we're late
                     adjusted_start_time = max(0, current_time - 0.05)  # Back-date by 50ms
                 
-                self.active_notes[key] = NoteEvent(note_name, freq, adjusted_start_time, strength)
+                self.active_notes[key] = NoteEvent(note_name, isPiano, freq, adjusted_start_time, strength)
     
     def finalize(self, final_time):
         """Finalize all remaining active notes"""
@@ -210,11 +219,11 @@ class NoteTracker:
         track.append(mido.Message('program_change', program=program, time=0))
         
         # Prepare all notes for MIDI export
-        all_notes = self.completed_notes.copy()
+        all_notes = [n for n in self.completed_notes.copy() if (program == 0 and n.isPiano) or (program != 0 and not n.isPiano)]
         
         # Add any remaining active notes (finalized)
         for note_event in self.active_notes.values():
-            if not note_event.is_active and note_event.get_duration() >= self.min_duration:
+            if ((program == 0 and note_event.isPiano) or (program != 0 and not note_event.isPiano)) and not note_event.is_active and note_event.get_duration() >= self.min_duration:
                 all_notes.append(note_event)
         
         if not all_notes:
@@ -288,11 +297,11 @@ class NoteTracker:
         
         # Save MIDI file
         try:
-            mid.save(output_file)
+            mid.save(output_file + str(program) + ".mid")
             print(f"\nMIDI file exported successfully: {output_file}")
             print(f"  - {len(all_notes)} notes exported")
             print(f"  - Tempo: {tempo_bpm} BPM")
-            print(f"  - Program: {program} (Piano)")
+            print(f"  - Program: {program}")
             print(f"  - Velocity range: {velocity_min}-{velocity_max}")
             print(f"  - Duration: {max(note.end_time for note in all_notes):.2f} seconds")
         except Exception as e:
@@ -369,7 +378,7 @@ def detect_notes_with_onsets(spectrum, frequencies, current_time, onset_times, m
                 adjusted_energy = energy * (1 + 0.1 * (num_harmonics - 1))
                 if near_onset:
                     adjusted_energy *= 1.2  # Boost confidence near onsets
-                notes.append((f0, adjusted_energy, note_name))
+                notes.append((f0, adjusted_energy, note_name, num_harmonics < 5))
             except:
                 continue
     
@@ -519,166 +528,203 @@ note_tracker = NoteTracker(
     detection_threshold=DETECTION_THRESHOLD
 )
 
-# -------------------- Matplotlib animation --------------------
-fig, ax = plt.subplots(figsize=(12, 6), dpi=120)
-line, = ax.plot([], [], lw=2, alpha=0.7, label="Spectrum")  # FFT spectrum line
-f0_line = ax.axvline(x=0, lw=3, ls="--", color="blue", alpha=0.8, label="Monophonic f0")
-harm_lines = [ax.axvline(x=0, lw=2, ls=":", alpha=0.5, color="blue") for _ in range(5)]
-
-# Lines for simultaneous notes (violet)
-multi_lines = []
-multi_texts = []
-
-handles, labels = ax.get_legend_handles_labels()
-
-harm_proxy = Line2D([0], [0], linestyle=":", color="blue", alpha=0.5, linewidth=2, label="f0 harmonics")
-multi_proxy = Line2D([0], [0], linestyle="-", alpha=0.8, color="purple", linewidth=2, label="Simultaneous notes")
-
-handles = [line, f0_line, harm_proxy, multi_proxy]
-labels = [line.get_label(), f0_line.get_label(), harm_proxy.get_label(), multi_proxy.get_label()]
-
-ax.set_xlim(FREQ_MIN, FREQ_MAX)
-ax.set_ylim(0, 1.1)
-ax.set_xlabel("Frequency (Hz)", fontsize=12)
-ax.set_ylabel("Normalized Magnitude", fontsize=12)
-ax.set_title(f"Polyphonic Music Analysis with Note Timing - {INPUT_FILE}", fontsize=14)
-ax.grid(True, alpha=0.3)
-ax.legend(handles=handles, labels=labels, loc='upper right')
-
-# Text for f0 note name
-text_xform = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
-f0_text = ax.text(
-    0, 0.98, "", transform=text_xform,
-    ha="left", va="top",
-    fontsize=12, color="blue", weight="bold",
-    bbox=dict(facecolor="white", alpha=0.8, edgecolor="blue", pad=2),
-    clip_on=False, zorder=10
-)
-f0_text.set_visible(False)
-
-# Text annotations for spectral peaks
-text_annotations = []
-
-# Number of animation frames = number of STFT columns
+# Number of frames = number of STFT columns
 FRAME_COUNT = S_b.shape[1]
 total_duration = FRAME_COUNT * HOP / sr
 
-print(f"Animation info: {FRAME_COUNT} frames, FPS={FPS}, HOP={HOP}, N_FFT={N_FFT}")
+print(f"Processing info: {FRAME_COUNT} frames, HOP={HOP}, N_FFT={N_FFT}")
 print(f"Frequency range: {FREQ_MIN}-{FREQ_MAX} Hz")
 print(f"Total audio duration: {total_duration:.2f} seconds")
 print(f"Smoothing settings: {SMOOTHING_TIME}s gap tolerance, {MIN_NOTE_DURATION}s min duration")
+print(f"Animation enabled: {ENABLE_ANIMATION}")
 
-writer = PillowWriter(fps=FPS)
-with writer.saving(fig, OUTPUT_GIF, dpi=120):
+# -------------------- Main Processing Loop --------------------
+if ENABLE_ANIMATION:
+    # -------------------- Matplotlib animation --------------------
+    print("Initializing matplotlib animation...")
+    fig, ax = plt.subplots(figsize=(12, 6), dpi=120)
+    line, = ax.plot([], [], lw=2, alpha=0.7, label="Spectrum")  # FFT spectrum line
+    f0_line = ax.axvline(x=0, lw=3, ls="--", color="blue", alpha=0.8, label="Monophonic f0")
+    harm_lines = [ax.axvline(x=0, lw=2, ls=":", alpha=0.5, color="blue") for _ in range(5)]
+
+    # Lines for simultaneous notes (violet)
+    multi_lines = []
+    multi_texts = []
+
+    handles, labels = ax.get_legend_handles_labels()
+
+    harm_proxy = Line2D([0], [0], linestyle=":", color="blue", alpha=0.5, linewidth=2, label="f0 harmonics")
+    multi_proxy = Line2D([0], [0], linestyle="-", alpha=0.8, color="purple", linewidth=2, label="Simultaneous notes")
+
+    handles = [line, f0_line, harm_proxy, multi_proxy]
+    labels = [line.get_label(), f0_line.get_label(), harm_proxy.get_label(), multi_proxy.get_label()]
+
+    ax.set_xlim(FREQ_MIN, FREQ_MAX)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlabel("Frequency (Hz)", fontsize=12)
+    ax.set_ylabel("Normalized Magnitude", fontsize=12)
+    ax.set_title(f"Polyphonic Music Analysis with Note Timing - {INPUT_FILE}", fontsize=14)
+    ax.grid(True, alpha=0.3)
+    ax.legend(handles=handles, labels=labels, loc='upper right')
+
+    # Text for f0 note name
+    text_xform = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
+    f0_text = ax.text(
+        0, 0.98, "", transform=text_xform,
+        ha="left", va="top",
+        fontsize=12, color="blue", weight="bold",
+        bbox=dict(facecolor="white", alpha=0.8, edgecolor="blue", pad=2),
+        clip_on=False, zorder=10
+    )
+    f0_text.set_visible(False)
+
+    # Text annotations for spectral peaks
+    text_annotations = []
+
+    print("Starting animation processing...")
+    writer = PillowWriter(fps=FPS)
+    with writer.saving(fig, OUTPUT_GIF, dpi=120):
+        for frame_number in range(FRAME_COUNT):
+            # Current time and spectrum column
+            current_time = frame_number * HOP / sr
+            spec_col = S_b[:, frame_number]
+            line.set_data(xf_b, spec_col)
+
+            # --- Detect simultaneous notes for tracking with onset awareness ---
+            simultaneous_notes = detect_notes_with_onsets(spec_col, xf_b, current_time, onset_times, max_notes=5)
+            
+            # Update note tracker with enhanced method
+            note_tracker.update_note_tracker_with_prediction(current_time, simultaneous_notes)
+
+            # --- Monophonic f0 (pyin) overlay & harmonics ---
+            f0_val = f0[frame_number] if frame_number < len(f0) else np.nan
+            if f0_val is not None and not np.isnan(f0_val) and FREQ_MIN <= f0_val <= FREQ_MAX:
+                f0_line.set_xdata([f0_val, f0_val])
+                f0_line.set_visible(True)
+                
+                # Show harmonics
+                for i, hline in enumerate(harm_lines):
+                    harmonic_freq = (i + 2) * f0_val  # 2nd, 3rd, 4th, etc.
+                    hline.set_xdata([harmonic_freq, harmonic_freq])
+                    hline.set_visible(FREQ_MIN <= harmonic_freq <= FREQ_MAX)
+                
+                # f0 note label
+                try:
+                    midi = librosa.hz_to_midi(f0_val)
+                    note_label = librosa.midi_to_note(midi, octave=True)
+                    x_pos = float(np.clip(f0_val, *ax.get_xlim()))
+                    f0_text.set_position((x_pos, 0.98))
+                    f0_text.set_text(f"f0: {note_label}")
+                    f0_text.set_visible(True)
+                except:
+                    f0_text.set_visible(False)
+            else:
+                f0_line.set_visible(False)
+                for hline in harm_lines:
+                    hline.set_visible(False)
+                f0_text.set_visible(False)
+
+            # --- Red labels: strongest spectral peaks ---
+            for txt in text_annotations:
+                txt.remove()
+            text_annotations = []
+            
+            top_notes = top_note_labels_from_spectrum(spec_col, xf_b, top_k=TOP_NOTES)
+            for freq, name, mag in top_notes:
+                text_annotations.append(
+                    ax.text(freq, mag + 0.02, name, color="red", fontsize=10, 
+                           ha="center", va="bottom", weight="bold",
+                           bbox=dict(facecolor="white", alpha=0.7, edgecolor="red", pad=1))
+                )
+
+            # --- Violet/Purple lines: tracked simultaneous notes ---
+            # Clear previous multi-pitch annotations
+            for t in multi_texts:
+                t.remove()
+            multi_texts = []
+
+            # Get active notes from tracker
+            active_notes = note_tracker.get_active_notes()
+
+            # Ensure we have enough lines
+            while len(multi_lines) < len(active_notes):
+                multi_lines.append(ax.axvline(x=0, lw=2, ls="-", alpha=0.8, color="purple"))
+
+            # Update lines and labels for tracked notes
+            for i, note_event in enumerate(active_notes):
+                multi_lines[i].set_xdata([note_event.frequency, note_event.frequency])
+                multi_lines[i].set_visible(True)
+                
+                # Add note label with duration info
+                duration = current_time - note_event.start_time
+                multi_texts.append(ax.text(
+                    note_event.frequency, 0.92 - i * 0.04, 
+                    f"{note_event.note_name} ({duration:.1f}s)", 
+                    transform=text_xform,
+                    ha="center", va="top", fontsize=11, 
+                    color="purple", weight="bold",
+                    bbox=dict(facecolor="white", alpha=0.8, edgecolor="purple", pad=1)
+                ))
+
+            # Hide unused lines
+            for j in range(len(active_notes), len(multi_lines)):
+                multi_lines[j].set_visible(False)
+
+            # Add frame info
+            time_sec = frame_number * HOP / sr
+            active_count = len(active_notes)
+            completed_count = len(note_tracker.get_completed_notes())
+            ax.text(0, 0, f"Time: {time_sec:.2f}s | Active: {active_count} | Completed: {completed_count}", 
+                    transform=ax.transAxes, fontsize=10,
+                    bbox=dict(facecolor="white", alpha=0.8))
+
+            writer.grab_frame()
+            
+            if frame_number % 30 == 0:  # Progress indicator
+                progress = (frame_number + 1) / FRAME_COUNT * 100
+                print(f"Animation progress: {progress:.1f}% | Active notes: {active_count}")
+
+    print(f"Animation complete! Saved as '{OUTPUT_GIF}'")
+
+else:
+    # -------------------- Fast processing without animation --------------------
+    print("Processing audio without animation (fast mode)...")
+    processing_start = time.time()
+    
     for frame_number in range(FRAME_COUNT):
         # Current time and spectrum column
         current_time = frame_number * HOP / sr
         spec_col = S_b[:, frame_number]
-        line.set_data(xf_b, spec_col)
 
-        # --- Detect simultaneous notes for tracking with onset awareness ---
+        # Detect simultaneous notes for tracking with onset awareness
         simultaneous_notes = detect_notes_with_onsets(spec_col, xf_b, current_time, onset_times, max_notes=5)
         
-        # Update note tracker with enhanced method
+        # Update note tracker
         note_tracker.update_note_tracker_with_prediction(current_time, simultaneous_notes)
-
-        # --- Monophonic f0 (pyin) overlay & harmonics ---
-        f0_val = f0[frame_number] if frame_number < len(f0) else np.nan
-        if f0_val is not None and not np.isnan(f0_val) and FREQ_MIN <= f0_val <= FREQ_MAX:
-            f0_line.set_xdata([f0_val, f0_val])
-            f0_line.set_visible(True)
-            
-            # Show harmonics
-            for i, hline in enumerate(harm_lines):
-                harmonic_freq = (i + 2) * f0_val  # 2nd, 3rd, 4th, etc.
-                hline.set_xdata([harmonic_freq, harmonic_freq])
-                hline.set_visible(FREQ_MIN <= harmonic_freq <= FREQ_MAX)
-            
-            # f0 note label
-            try:
-                midi = librosa.hz_to_midi(f0_val)
-                note_label = librosa.midi_to_note(midi, octave=True)
-                x_pos = float(np.clip(f0_val, *ax.get_xlim()))
-                f0_text.set_position((x_pos, 0.98))
-                f0_text.set_text(f"f0: {note_label}")
-                f0_text.set_visible(True)
-            except:
-                f0_text.set_visible(False)
-        else:
-            f0_line.set_visible(False)
-            for hline in harm_lines:
-                hline.set_visible(False)
-            f0_text.set_visible(False)
-
-        # --- Red labels: strongest spectral peaks ---
-        for txt in text_annotations:
-            txt.remove()
-        text_annotations = []
         
-        top_notes = top_note_labels_from_spectrum(spec_col, xf_b, top_k=TOP_NOTES)
-        for freq, name, mag in top_notes:
-            text_annotations.append(
-                ax.text(freq, mag + 0.02, name, color="red", fontsize=10, 
-                       ha="center", va="bottom", weight="bold",
-                       bbox=dict(facecolor="white", alpha=0.7, edgecolor="red", pad=1))
-            )
-
-        # --- Violet/Purple lines: tracked simultaneous notes ---
-        # Clear previous multi-pitch annotations
-        for t in multi_texts:
-            t.remove()
-        multi_texts = []
-
-        # Get active notes from tracker
-        active_notes = note_tracker.get_active_notes()
-
-        # Ensure we have enough lines
-        while len(multi_lines) < len(active_notes):
-            multi_lines.append(ax.axvline(x=0, lw=2, ls="-", alpha=0.8, color="purple"))
-
-        # Update lines and labels for tracked notes
-        for i, note_event in enumerate(active_notes):
-            multi_lines[i].set_xdata([note_event.frequency, note_event.frequency])
-            multi_lines[i].set_visible(True)
-            
-            # Add note label with duration info
-            duration = current_time - note_event.start_time
-            multi_texts.append(ax.text(
-                note_event.frequency, 0.92 - i * 0.04, 
-                f"{note_event.note_name} ({duration:.1f}s)", 
-                transform=text_xform,
-                ha="center", va="top", fontsize=11, 
-                color="purple", weight="bold",
-                bbox=dict(facecolor="white", alpha=0.8, edgecolor="purple", pad=1)
-            ))
-
-        # Hide unused lines
-        for j in range(len(active_notes), len(multi_lines)):
-            multi_lines[j].set_visible(False)
-
-        # Add frame info
-        time_sec = frame_number * HOP / sr
-        active_count = len(active_notes)
-        completed_count = len(note_tracker.get_completed_notes())
-        ax.text(0, 0, f"Time: {time_sec:.2f}s | Active: {active_count} | Completed: {completed_count}", 
-                transform=ax.transAxes, fontsize=10,
-                bbox=dict(facecolor="white", alpha=0.8))
-
-        writer.grab_frame()
-        
-        if frame_number % 15 == 0:  # Progress indicator
-            print(f"Processed frame {frame_number}/{FRAME_COUNT} | Active notes: {active_count}")
+        # Progress indicator (less frequent than animation mode)
+        if frame_number % 100 == 0:
+            progress = (frame_number + 1) / FRAME_COUNT * 100
+            active_count = len(note_tracker.get_active_notes())
+            completed_count = len(note_tracker.get_completed_notes())
+            elapsed = time.time() - processing_start
+            est_total = elapsed / (frame_number + 1) * FRAME_COUNT
+            est_remaining = est_total - elapsed
+            print(f"Progress: {progress:.1f}% | Active: {active_count} | Completed: {completed_count} | ETA: {est_remaining:.1f}s")
+    
+    processing_time = time.time() - processing_start
+    print(f"Audio processing completed in {processing_time:.2f} seconds")
+    print(f"Processing speed: {FRAME_COUNT / processing_time:.1f} frames/second")
 
 # Finalize note tracking
 note_tracker.finalize(total_duration)
-
-print(f"Animation complete! Saved as '{OUTPUT_GIF}'")
 
 # Print note timing summary
 note_tracker.print_note_summary()
 
 # Export to MIDI
 print(f"\nExporting detected notes to MIDI...")
+midi_start = time.time()
 note_tracker.export_to_midi(
     OUTPUT_MIDI,
     tempo_bpm=MIDI_TEMPO_BPM,
@@ -686,3 +732,15 @@ note_tracker.export_to_midi(
     velocity_max=MIDI_VELOCITY_MAX,
     program=MIDI_PROGRAM
 )
+note_tracker.export_to_midi(
+    OUTPUT_MIDI,
+    tempo_bpm=MIDI_TEMPO_BPM,
+    velocity_min=MIDI_VELOCITY_MIN,
+    velocity_max=MIDI_VELOCITY_MAX,
+    program=73
+)
+midi_time = time.time() - midi_start
+print(f"MIDI export completed in {midi_time:.2f} seconds")
+
+total_time = time.time() - start_time
+print(f"\nTotal processing time: {total_time:.2f} seconds")
