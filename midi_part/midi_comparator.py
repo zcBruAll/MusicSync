@@ -5,6 +5,7 @@ midi_ref = pretty_midi.PrettyMIDI('./Output/Ecossaise_Beethoven.mid')
 midis_file_path = [
     './Output/Ecossaise_converted_1.mid',
     './Output/Ecossaise_converted_2.mid',
+    './Output/Ecossaise_converted_3.mid',
 ]
 instruments = []
 midis = {}

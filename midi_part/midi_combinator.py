@@ -17,6 +17,6 @@ for midi_file in midi_files:
         )
         instrument.notes.append(midi_note)
     midi.instruments.append(instrument)
-    
-output_filename = f"./Output/Ecossaise_converted.mid"
+
+output_filename = f"./Output/Ecossaise_converted_3.mid"
 midi.write(output_filename)
