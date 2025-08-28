@@ -1,9 +1,7 @@
 import pygame
 import random
-import pretty_midi
-from Objects.Satellite import Satellite
-from Objects.Alien import Alien
-
+from Midi_Utils import *
+from Generators import *
 pygame.init()
 
 
@@ -14,8 +12,8 @@ def curveCalculation(x):
 
 
 #       Config
-width = 1920
-height = 1080
+width = 1500
+height = 700
 
 spacing = 24
 scale = 20.0
@@ -23,9 +21,9 @@ cols = int(width/spacing)+1
 rows = int((curveCalculation(960))/spacing)+1
 running = True
 
-notesList = []
+
 triangleList = []
-objects =[] #satellites list
+objects =[]
 
 timer = 0
 videoTimer = -(15*float(1/60))
@@ -102,14 +100,10 @@ for y in range(rows):
     #Here we create a list of lists with inside each tuple of EarthTriangles that form a rectangle
     #It's made like this to easily access the colors of nearby triangles
 
-# Load MIDI file into PrettyMIDI object
-midi_data = pretty_midi.PrettyMIDI('Sounds/PinkPanther.midi')
-# Print an empirical estimate of its global tempo
-instrumentList = midi_data.instruments
 
-for x in instrumentList:
-    print(pretty_midi.program_to_instrument_name(x.program))
-    notesList.append(x.notes)
+notesList = readMidi('Sounds/PinkPanther.midi')
+pianoNotes = seperateInstrument(notesList, 0)
+trumpetNotes = seperateInstrument(notesList, 1)
 
 #Calculating the max pitch and min pitch
 maxPitch = 0
@@ -144,7 +138,7 @@ while running:
                 i[j][0].changeColor(i[j-1][1])
 
 
-    if (((float(notesList[0][0].start))) < ((float(notesList[1][0].start)))):
+    if (float(notesList[0][0].start) < float(notesList[1][0].start)):
         soonestNote = 0
     else:
         soonestNote = 1
@@ -157,8 +151,6 @@ while running:
         else:
             obj.draw(screen)
 
-
-
     if (timer > 60):
         for x in triangleList:
             x[0][0].defineColor()
@@ -166,15 +158,16 @@ while running:
         timer = 0
 
     if (videoTimer >= (float(notesList[soonestNote][0].start))):
-        y = int((notesList[soonestNote][0].pitch-minPitch)*(int(1080/(maxPitch-minPitch))))
+        y = int((notesList[soonestNote][0].pitch-minPitch)*(int(width/(maxPitch-minPitch))))
+        y = notesList[soonestNote][0].pitch
         if(y > height):
             y = height
-        if (soonestNote == 1 and not notesList[1] == []):
-            x = 0
-            instru = Satellite(x,y)     #notesList[soonestNote][0].velocity
-        elif (not notesList[0] == []):
-            x = width - 20
-            instru = Alien(x,y)    #notesList[soonestNote][0].velocity
+        if (soonestNote == 1 and not trumpetNotes == []):
+            x = 50
+            instru = generate_Satellite(x,y, noteLifetime(notesList[soonestNote][0]), velocityRange(notesList[soonestNote][0]))
+        elif (not pianoNotes == []):
+            x = width - 50
+            instru = generate_Alien(x,y, noteLifetime(notesList[soonestNote][0]), velocityRange(notesList[soonestNote][0]))
         objects.append(instru)
         del notesList[soonestNote][0]
 

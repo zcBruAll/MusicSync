@@ -1,4 +1,5 @@
 import math
+import random
 
 def drawSemiElispe_notCenter(cx, cy, rx, ry, segment):
     points = []
@@ -28,11 +29,26 @@ def drawSemiElipse(cx, cy, rx, ry, segment, orientation = 1):
         angle2 = math.radians((i + 1) * (angle_step))
         
         point1 = [cx + rx * math.cos(angle1), cy + ry * math.sin(angle1)]
-        point2 = [cx + rx * math.cos(angle2), cy + ry * math.sin(angle2)]
+        point2 = [cx + rx * math.cos(angle2), cy + ry * math.sin(angle2)]   
         
         triangles.append([[cx,cy], point1, point2])
          
-    return triangles    
+    return triangles 
+
+def drawElipse(cx, cy, rx, ry, segment):
+    angle_step = 360 / segment
+    triangles = []
+    
+    for i in range(segment):
+        angle1 = math.radians(i * (angle_step))
+        angle2 = math.radians((i + 1) * (angle_step))
+        
+        point1 = [cx + rx * math.cos(angle1), cy + ry * math.sin(angle1)]
+        point2 = [cx + rx * math.cos(angle2), cy + ry * math.sin(angle2)]   
+        
+        triangles.append([[cx,cy], point1, point2])
+         
+    return triangles   
 
 def drawSemiCercle_notCenter(cx, cy, r, segment):
     points = []
@@ -68,3 +84,16 @@ def drawSemiCercle(cx, cy, radius, segment, orientation = 1):
         triangles.append([[cx,cy], point1, point2])
         
     return triangles
+
+def randomColor(color_name):
+    if color_name == 'yellow':
+        return (255, random.randint(230, 255), random.randint(1,255))
+    
+    if color_name == 'purple':
+        return (random.randint(160, 190), random.randint(150, 175), random.randint(200, 220))
+    
+    if color_name == 'white':
+        return (random.randint(227, 255),  random.randint(227, 255),  random.randint(227, 255))
+    
+    if color_name == 'gray':
+        return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
