@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 
 midi_ref = pretty_midi.PrettyMIDI('./Output/Ecossaise_Beethoven.mid')
 midis_file_path = [
-    './Output/Ecossaise_converted_1.mid',
-    './Output/Ecossaise_converted_2.mid',
-    './Output/detected_notes0.mid',
+    # './Output/E_v1.mid',
+    # './Output/E_v2.mid',
+    './Output/E_p_alpha.mid',
+    './Output/E_p_alpha2.mid',
+    './Output/E_p_alpha3.mid',
 ]
 instruments = []
 midis = {}
@@ -80,7 +82,7 @@ def generate_nb_notes_graph(axes, midis):
         # Créer une couleur pour la référence (gris)
         ref_color = 'lightgray'
         
-        labels = [f"{inst_name}_ref"] + [f"{data.name}_created" for data in files]
+        labels = [f"{inst_name}_ref"] + [f"{data.name}" for data in files]
         values = [files[0].ref_count] + [data.created_count for data in files]
         colors = [ref_color] + [data.color for data in files]
 
@@ -89,59 +91,63 @@ def generate_nb_notes_graph(axes, midis):
                                   ylabel="Notes", colors=colors)
 
 def generate_avg_duration_diff_graph(axes, midis):
-    # Utiliser la dernière colonne disponible
-    col_idx = min(len(midis), axes.shape[1] - 1)
-    ax = axes[0, col_idx]
+    for i, (inst_name, files) in enumerate(midis.items()):
+        # Utiliser la dernière colonne disponible
+        rowPos = 2 if nbInst > 1 else 1
+        colPos = i if nbInst > 1 else 1
+        ax = axes[rowPos, colPos]
 
-    labels = []
-    values = []
-    colors = []
+        labels = []
+        values = []
+        colors = []
 
-    for inst_name, files in midis.items():
         for data in files:
-            labels.append(f"{inst_name}_{data.name}")
+            labels.append(f"{data.name}")
             values.append(data.avg_duration_diff)
             colors.append(data.color)
 
-    plot_bar_with_annotations(
-        ax, labels, values,
-        title="Différence moyenne de durée des notes (ms)",
-        ylabel="ms",
-        ylim=(0, max(values) * 1.2 if values else 1000),
-        fmt="{:.0f}ms",
-        colors=colors
-    )
+        plot_bar_with_annotations(
+            ax, labels, values,
+            title=f"{inst_name} - Différence moyenne de durée des notes (ms)",
+            ylabel="ms",
+            ylim=(0, max(values) * 1.2 if values else 1000),
+            fmt="{:.0f}ms",
+            colors=colors
+        )
 
 def generate_avg_start_diff_graph(axes, midis):
     # Utiliser la dernière colonne disponible
-    col_idx = min(len(midis), axes.shape[1] - 1)
-    ax = axes[1, col_idx]
+    for i, (inst_name, files) in enumerate(midis.items()):
+        if i >= axes.shape[1]:
+            break
+        rowPos = 3 if nbInst > 1 else 1
+        ax = axes[rowPos, i]
 
-    labels = []
-    values = []
-    colors = []
+        labels = []
+        values = []
+        colors = []
 
-    for inst_name, files in midis.items():
         for data in files:
-            labels.append(f"{inst_name}_{data.name}")
+            labels.append(f"{data.name}")
             values.append(data.avg_start_diff)
             colors.append(data.color)
 
-    plot_bar_with_annotations(
-        ax, labels, values,
-        title="Différence moyenne de début des notes (ms)",
-        ylabel="ms",
-        ylim=(0, max(values) * 1.2 if values else 100),
-        fmt="{:.0f}ms",
-        colors=colors
-    )
+        plot_bar_with_annotations(
+            ax, labels, values,
+            title=f"{inst_name} - Différence moyenne de début des notes (ms)",
+            ylabel="ms",
+            ylim=(0, max(values) * 1.2 if values else 100),
+            fmt="{:.0f}ms",
+            colors=colors
+        )
 
 def generate_pitch_graph(axes, midis):
     for j, (inst_name, files) in enumerate(midis.items()):
         if j >= axes.shape[1]:
             break
-
-        ax = axes[1, j]
+        rowPos = 1 if nbInst > 1 else 0
+        colPos = j if nbInst > 1 else 1
+        ax = axes[rowPos, colPos]
 
         labels, values, colors, data_refs = [], [], [], []
 
@@ -176,20 +182,18 @@ def generate_pitch_graph(axes, midis):
                         xytext=(0, 15), textcoords="offset points",
                         ha="center", va="bottom", fontsize=8)
 
-
-
 def generate_overall_match_graph(axes, midis):
     for i, (inst_name, files) in enumerate(midis.items()):
         if i >= axes.shape[1]:
             break
-
-        ax = axes[2, i]
-        names = [data.name + '_' + inst_name for data in files]
+        rowPos = -1 if nbInst > 1 else 2
+        ax = axes[rowPos, i]
+        names = [data.name for data in files]
         values = [data.overall_score for data in files]
         colors = [data.color for data in files]
 
         plot_bar_with_annotations(ax, names, values,
-                                title="Matching global - " + inst_name,
+                                title=f"{inst_name} - Matching global",
                                 ylabel="%",
                                 ylim=(0, 100),
                                 fmt="{:.1f}%",
@@ -280,13 +284,12 @@ if not midis:
 
 # Création des graphiques
 nbInst = len(midis.keys())
-ncols = max(3, nbInst + 1)  # Au moins 3 colonnes
 
-fig, axes = plt.subplots(3, ncols, figsize=(5*ncols, 12))
-
-# S'assurer que axes est bien un tableau 2D
-if len(axes.shape) == 1:
-    axes = axes.reshape(3, ncols)
+if(nbInst == 1):
+    fig, axes = plt.subplots(3, 2, figsize=(18, 15))
+    axes[-1, -1].remove()  # Supprimer le subplot vide
+else:
+    fig, axes = plt.subplots(5, nbInst, figsize=(5*nbInst, 12))
 
 # Génération des graphiques
 generate_nb_notes_graph(axes, midis)
@@ -294,12 +297,6 @@ generate_avg_duration_diff_graph(axes, midis)
 generate_avg_start_diff_graph(axes, midis)
 generate_pitch_graph(axes, midis)
 generate_overall_match_graph(axes, midis)
-
-# Masquer les axes inutilisés
-for i in range(3):
-    for j in range(ncols):
-        if j >= nbInst and not (i == 0 and j == ncols-1) and not (i == 1 and j == ncols-1) and not (i == 2 and j == 0):
-            axes[i, j].set_visible(False)
 
 plt.tight_layout()
 plt.show()
