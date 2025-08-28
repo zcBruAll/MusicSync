@@ -17,13 +17,13 @@ def star_generator(number):
 def get_random_stars(stars):
     return random.choice(stars)
 
-midi = pretty_midi.PrettyMIDI('./Sounds/PinkPanther.midi')
+midi = pretty_midi.PrettyMIDI('./Sounds/Ecossaise_Beethoven.mid')
 all_piano_notes = [note for inst in midi.instruments for note in inst.notes if inst.program == 0]
 all_piano_notes.sort(key=lambda note: note.start)
 
 pygame.init()
 pygame.mixer.init()
-pygame.mixer.music.load("./Sounds/PinkPanther_Piano.mp3")
+pygame.mixer.music.load("./Sounds/Ecossaise_Piano.mp3")
 pygame.mixer.music.play()
 
 SCREEN_WIDTH = pygame.display.Info().current_w
@@ -50,7 +50,7 @@ while running:
     new_notes = [note for note in all_piano_notes 
                  if last_time < note.start <= elapsed_time_s]
 
-    for note in new_notes:
+    if new_notes not in (None, []):
         star = get_random_stars(stars)
         star.isMoving = True
         star.move_angle = random.uniform(0, 2 * math.pi)
