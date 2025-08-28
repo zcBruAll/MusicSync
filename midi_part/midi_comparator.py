@@ -5,7 +5,7 @@ midi_ref = pretty_midi.PrettyMIDI('./Output/Ecossaise_Beethoven.mid')
 midis_file_path = [
     './Output/Ecossaise_converted_1.mid',
     './Output/Ecossaise_converted_2.mid',
-    './Output/Ecossaise_converted_3.mid',
+    './Output/detected_notes0.mid',
 ]
 instruments = []
 midis = {}
@@ -179,17 +179,21 @@ def generate_pitch_graph(axes, midis):
 
 
 def generate_overall_match_graph(axes, midis):
-    ax = axes[2, 0]
-    names = [data.name + '_' + inst_name for inst_name, files in midis.items() for data in files]
-    values = [data.overall_score for files in midis.values() for data in files]
-    colors = [data.color for files in midis.values() for data in files]
-    
-    plot_bar_with_annotations(ax, names, values,
-                              title="Matching global par instrument",
-                              ylabel="%",
-                              ylim=(0, 100),
-                              fmt="{:.1f}%",
-                              colors=colors)
+    for i, (inst_name, files) in enumerate(midis.items()):
+        if i >= axes.shape[1]:
+            break
+
+        ax = axes[2, i]
+        names = [data.name + '_' + inst_name for data in files]
+        values = [data.overall_score for data in files]
+        colors = [data.color for data in files]
+
+        plot_bar_with_annotations(ax, names, values,
+                                title="Matching global - " + inst_name,
+                                ylabel="%",
+                                ylim=(0, 100),
+                                fmt="{:.1f}%",
+                                colors=colors)
 
 # Poids pour le calcul du score global
 w_pitch = 0.4
@@ -296,7 +300,6 @@ for i in range(3):
     for j in range(ncols):
         if j >= nbInst and not (i == 0 and j == ncols-1) and not (i == 1 and j == ncols-1) and not (i == 2 and j == 0):
             axes[i, j].set_visible(False)
-axes[2, 1].set_visible(False)
 
 plt.tight_layout()
 plt.show()
