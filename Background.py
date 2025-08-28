@@ -11,7 +11,8 @@ def star_generator(number):
         size = random.randint(4, 8)
         x = random.randint(0, SCREEN_WIDTH)
         y = random.randint(0, SCREEN_HEIGHT)
-        stars.append(Star(x, y, num_triangle, size))
+        color = random.choice([(255, 255, 255), (255, 215, 0), (173, 216, 230)])
+        stars.append(Star(x, y, num_triangle, size, color))
     return stars
 
 def get_random_stars(stars):

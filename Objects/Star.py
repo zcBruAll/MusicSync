@@ -27,8 +27,6 @@ class Star():
             p3 = (self.x + math.cos(angle + delta) * self.size,
                   self.y + math.sin(angle + delta) * self.size)
 
-                
-
             # dessiner le triangle
             pygame.draw.polygon(surface, self.color, [p1, p2, p3])
             
@@ -36,4 +34,3 @@ class Star():
         if self.isMoving:
             self.x += math.cos(self.move_angle) * 5
             self.y += math.sin(self.move_angle) * 5
-            
