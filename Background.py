@@ -2,9 +2,18 @@ import math
 import random
 import pygame
 import pretty_midi
-from Objects.Star import Star
+
+import Star
+
 
 def star_generator(number):
+    """
+    Generate a number of Star with random properties.
+    1. Randomly determine the number of triangles (3 to 8).
+    2. Randomly determine the size of the star (4 to 8 px).
+    3. Randomly determine the position of the star inside the game window
+    4. Randomly determine the color of the star (white, gold, or light blue).
+    """
     stars = []
     for _ in range(number):
         num_triangle = random.randint(3, 8)
@@ -16,7 +25,10 @@ def star_generator(number):
     return stars
 
 def get_random_stars(stars):
-    return random.choice(stars)
+    available = [s for s in stars if not s.isMoving]  # filtre
+    if available:  # vérifie qu'il en reste
+        return random.choice(available)
+    return None  # si toutes les étoiles bougent déjà
 
 midi = pretty_midi.PrettyMIDI('./Sounds/Ecossaise_Beethoven.mid')
 all_piano_notes = [note for inst in midi.instruments for note in inst.notes if inst.program == 0]
@@ -40,6 +52,7 @@ last_time = 0.0
 
 while running:
     elapsed_time_s = round((pygame.time.get_ticks() - start_time) / 1000,2)
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -58,10 +71,16 @@ while running:
 
     last_time = elapsed_time_s
 
+    """
+    for each star update graphics and rotate them
+    """
     for star in stars:
-        star.update()
+        star.update(screen)
         star.draw(screen)
-        star.rotation += 0.01
+        star.rotation += star.rotation_speed
+        
+        if star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
+            stars.remove(star)
         
     pygame.display.flip()
 

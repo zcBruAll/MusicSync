@@ -1,6 +1,12 @@
 import random
+
+import pygame
 from Objects.Satellite import Satellite
 from Objects.Alien import Alien
+from Objects.Star import Star
+
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 
 def generate_Satellite(x, y, lifetime, additions):
     
@@ -55,3 +61,21 @@ def randomColor(color_name):
     
     if color_name == 'multi':
         return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
+
+def star_generator(number):
+    """
+    Generate a number of Star with random properties.
+    1. Randomly determine the number of triangles (3 to 8).
+    2. Randomly determine the size of the star (4 to 8 px).
+    3. Randomly determine the position of the star inside the game window
+    4. Randomly determine the color of the star (white, gold, or light blue).
+    """
+    stars = []
+    for _ in range(number):
+        num_triangle = random.randint(3, 8)
+        size = random.randint(4, 8)
+        x = random.randint(0, SCREEN_WIDTH)
+        y = random.randint(0, SCREEN_HEIGHT)
+        color = random.choice([(255, 255, 255), (255, 215, 0), (173, 216, 230)])
+        stars.append(Star(x, y, num_triangle, size, color))
+    return stars

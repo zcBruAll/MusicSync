@@ -1,3 +1,4 @@
+import math
 import time
 
 import pygame
@@ -21,6 +22,12 @@ def colorGreen():
 
 def colorBlue():
     return ((0, random.randint(0, 100), random.randint(225, 255)))
+
+def get_random_stars(stars):
+    available = [s for s in stars if not s.isMoving]  # filtre
+    if available:  # vérifie qu'il en reste
+        return random.choice(available)
+    return None  # si toutes les étoiles bougent déjà
 
 
 #       Config
@@ -65,8 +72,8 @@ class EarthTriangle:
 #       Initialization
 screen = pygame.display.set_mode((width, height))
 clock = pygame.time.Clock()
-pygame.mixer.music.load("Sounds/PinkPanther.midi")
-# pygame.mixer.music.play()
+pygame.mixer.music.load("Sounds/PinkPanther_Both.mp3")
+pygame.mixer.music.play()
 
 
 # Creating all the triangles before the loop makes for a way better performance
@@ -132,7 +139,9 @@ for y in range (len(triangleList) - 1):
             triangleList[y][x].chooseColor(colorBlue())
 
 
-
+start_time = pygame.time.get_ticks()
+last_time = 0.0
+stars = star_generator(300)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -141,6 +150,29 @@ while running:
     screen.fill((10, 10, 25))
     timer += 1
     videoTimer += float(1 / 60)
+    
+    #Drawing background
+    elapsed_time_s = round((pygame.time.get_ticks() - start_time) / 1000,2)
+    new_notes = [note for note in trumpetNotes 
+                 if last_time < note.start <= elapsed_time_s]
+
+    if new_notes not in (None, []):
+        star = get_random_stars(stars)
+        star.isMoving = True
+        star.move_angle = random.uniform(0, 2 * math.pi)
+
+    last_time = elapsed_time_s
+
+    """
+    for each star update graphics and rotate them
+    """
+    for star in stars:
+        star.update(screen)
+        star.draw(screen)
+        star.rotation += star.rotation_speed
+        
+        if star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
+            stars.remove(star)
 
     # Drawing all the triangles
     for i in triangleList:
