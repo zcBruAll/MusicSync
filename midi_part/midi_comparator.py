@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 midi_ref = pretty_midi.PrettyMIDI('./Output/Ecossaise_Beethoven.mid')
 midis_file_path = [
     # './Output/E_v1.mid',
-    # './Output/E_v2.mid',
-    './Output/E_p_alpha.mid',
-    './Output/E_p_alpha2.mid',
-    './Output/E_p_alpha3.mid',
+    './Output/E_v3.mid',
+    # './Output/E_p_proto.mid',
+    # './Output/E_p_v1.mid',
+    # './Output/E_p_alpha.mid',
 ]
 instruments = []
 midis = {}
