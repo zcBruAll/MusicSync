@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pygame, math
 
@@ -10,28 +11,64 @@ class Star():
         self.color = color
         self.rotation = 0               # rotation actuelle en radians
         self.isMoving = False
-        self.rotation_speed = 0.05       # vitesse de rotation
+        self.rotation_speed = 0.02       # vitesse de rotation
         self.move_angle = 0                # angle de déplacement
         self.trail = []  # stocke les anciennes positions
 
     def draw(self, surface):
-        # petit angle d’ouverture du triangle
-        delta = math.radians(15)  
+        """
+        Dessine une étoile avec un corps central (n_branches côtés)
+        et un triangle sur chaque arête.
+        """
+        step = 2 * math.pi / self.num_triangle
 
+        polygon_points = []
         for i in range(self.num_triangle):
-            # angle de base pour ce triangle
-            angle = self.rotation + (2 * math.pi / self.num_triangle) * i
+            angle = i * step + self.rotation
+            px = self.x + math.cos(angle) * self.size / 2
+            py = self.y + math.sin(angle) * self.size / 2
+            polygon_points.append((px, py))
 
-            # points du triangle
-            p1 = (self.x, self.y)  # centre
-            p2 = (self.x + math.cos(angle) * self.size,
-                  self.y + math.sin(angle) * self.size)
-            p3 = (self.x + math.cos(angle + delta) * self.size,
-                  self.y + math.sin(angle + delta) * self.size)
+        # dessiner le corps
+        pygame.draw.polygon(surface, self.color, polygon_points)
+
+        # triangles extérieurs
+        for i in range(self.num_triangle):
+            p1 = polygon_points[i]
+            p2 = polygon_points[(i + 1) % self.num_triangle]
+
+            # milieu de l’arête
+            mx = (p1[0] + p2[0]) / 2
+            my = (p1[1] + p2[1]) / 2
+
+            # vecteur de l'arête
+            vx = p2[0] - p1[0]
+            vy = p2[1] - p1[1]
+
+            # vecteur perpendiculaire
+            nx, ny = -vy, vx
+            length = math.hypot(nx, ny)
+            if length == 0:
+                continue
+            nx /= length
+            ny /= length
+
+            # vecteur centre → milieu
+            cx = mx - self.x
+            cy = my - self.y
+
+            # vérifier si la normale pointe vers l’extérieur
+            dot = nx * cx + ny * cy
+            if dot < 0:
+                nx, ny = -nx, -ny
+
+            # sommet extérieur du triangle
+            tip = (mx + nx * self.size, my + ny * self.size)
 
             # dessiner le triangle
-            pygame.draw.polygon(surface, self.color, [p1, p2, p3])
-            
+            pygame.draw.polygon(surface, self.color, [p1, p2, tip])
+
+
     def update(self, surface):
         if self.isMoving:
             self.draw_trail(surface)
@@ -43,7 +80,8 @@ class Star():
     def draw_trail(self, surface):
         back_angle = self.move_angle + math.pi  
 
-        num_trail_triangles = 5  # nombre de triangles dans la trainée
+        num_trail_triangles = 10  # nombre de triangles dans la trainée
+            
         for i in range(num_trail_triangles):
             # plus i est grand → plus le triangle est petit et éloigné
             size = self.size * (1.2 - i * 0.15)  
@@ -59,8 +97,8 @@ class Star():
 
             # couleur qui s’assombrit avec la distance
             fade = max(0, 255 - i * 40)
-            color = (255, fade, 0)  # du orange vers rouge sombre
-
+            color = (255, fade, 120)  # du orange vers rouge sombre
+            
             pygame.draw.polygon(surface, color, [p1, p2, p3])
             
     def is_off_screen(self, width, height):

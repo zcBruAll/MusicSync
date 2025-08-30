@@ -64,6 +64,19 @@ def velocityRange(note):
     elif note.velocity <= 80:
         return 5
 
+def get_min_max_pitch(noteList):
+    # Calculating the max pitch and min pitch (used later to determine the Y position of the notes)
+    maxPitch = 0
+    minPitch = noteList[0][0].pitch
+    for k in noteList:
+        for i in k:
+            if (i.pitch > maxPitch):
+                maxPitch = i.pitch
+            elif (i.pitch < minPitch):
+                minPitch = i.pitch
+
+    return minPitch, maxPitch
+
 #fonctions tests
 notes = readMidi('Sounds/PinkPanther.midi')
 instru = seperateInstrument(notes, 0)

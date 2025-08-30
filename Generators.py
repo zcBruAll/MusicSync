@@ -4,6 +4,8 @@ import pygame
 from Objects.Satellite import Satellite
 from Objects.Alien import Alien
 from Objects.Star import Star
+from Objects.Earth import Earth, EarthTriangle
+from Utils.func_utils import *
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
@@ -45,22 +47,6 @@ def generate_Alien(x, y, lifetime, additions):
     
     return Alien(x, y, lifetime, additions, body_width, body_height, body_color, elipse_width, elipse_height, elipse_color)
 
-def randomColor(color_name):
-    if color_name == 'yellow':
-        return (255, random.randint(230, 255), random.randint(1,255))
-    
-    if color_name == 'purple':
-        return (random.randint(160, 190), random.randint(150, 175), random.randint(200, 220))
-    
-    if color_name == 'white':
-        return (random.randint(220, 255),  random.randint(220, 255),  random.randint(220, 255))
-    
-    if color_name == 'blue':
-        hex = random.randint(20, 170)
-        return (hex, random.randint(hex, hex+20) , random.randint(120, 225))
-    
-    if color_name == 'multi':
-        return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
 
 def star_generator(number):
     """
@@ -79,3 +65,37 @@ def star_generator(number):
         color = random.choice([(255, 255, 255), (255, 215, 0), (173, 216, 230)])
         stars.append(Star(x, y, num_triangle, size, color))
     return stars
+
+def generate_earth(rows, cols, spacing, scale):
+    # Creating all the triangles before the loop makes for a way better performance
+    triangleList = []
+    for y in range(rows):
+        tempList = []
+        for x in range(cols):
+
+            # Vertices positions
+            x0 = x * spacing
+            x1 = (x + 1) * spacing
+            x2 = x * spacing
+            x3 = (x + 1) * spacing
+            y0 = 1080 - (y * spacing)
+            y1 = 1080 - (y * spacing)
+            y2 = 1080 - (y + 1) * spacing
+            y3 = 1080 - (y + 1) * spacing
+
+            # Here we make it so that if any vertex goes "above" the curve it will relocate to the curve instead
+            if (y0 < curveCalculation(x0)):
+                y0 = curveCalculation(x0)
+            if (y1 < curveCalculation(x1)):
+                y1 = curveCalculation(x1)
+            if (y2 < curveCalculation(x2)):
+                y2 = curveCalculation(x2)
+            if (y3 < curveCalculation(x3)):
+                y3 = curveCalculation(x3)
+
+            tempList.append((EarthTriangle((x0, y0), (x1, y1), (x2, y2))))
+            tempList.append(EarthTriangle((x1, y1), (x3, y3), (x2, y2)))
+        triangleList.append(tempList)
+    return Earth(triangleList)
+        # Here we create a list of lists with inside each tuple of EarthTriangles that form a rectangle
+        # It's made like this to easily access the colors of nearby triangles
