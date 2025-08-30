@@ -59,7 +59,7 @@ def star_generator(number):
     stars = []
     for _ in range(number):
         num_triangle = random.randint(3, 8)
-        size = random.randint(4, 8)
+        size = random.randint(3, 6)
         x = random.randint(0, SCREEN_WIDTH)
         y = random.randint(0, SCREEN_HEIGHT)
         color = random.choice([(255, 255, 255), (255, 215, 0), (173, 216, 230)])

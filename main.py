@@ -19,7 +19,7 @@ print(cols * rows)
 
 # Generate objects
 earth = generate_earth(rows, cols, spacing, scale)
-stars = star_generator(300)
+stars = star_generator(600)
 
 notesList = []
 objects = []  # satellites list
