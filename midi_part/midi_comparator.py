@@ -307,11 +307,3 @@ def generate_graph(midi_ref_path, midi_file_path):
     plt.tight_layout()
     plt.show()
     
-generate_graph(
-    './Output/Ecossaise_Beethoven.mid', 
-    [
-        # './Output/Comparator/E_v3.mid',
-        './Output/Comparator/E_p_proto.mid',
-        './Output/Comparator/E_p_v1.mid',
-        './Output/Comparator/E_p_alpha.mid',
-    ])
