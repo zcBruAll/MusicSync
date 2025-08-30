@@ -312,4 +312,4 @@ print("Enhanced polyphonic analysis complete!")
 # combine_midis(OUTPUT_MIDI + "0.mid", OUTPUT_MIDI + "73.mid", OUTPUT_MIDI + "both.mid")
 # generate_graph("Sounds/Ecossaise_Beethoven.mid", [OUTPUT_MIDI + "both.mid"])
 
-generate_graph("Output/Ecossaise_Piano.mid", [OUTPUT_MIDI + "0.mid"])
+generate_graph("Output/Ecossaise_Beethoven.mid", ["Output/saved_data.mid", OUTPUT_MIDI + "73.mid"])
