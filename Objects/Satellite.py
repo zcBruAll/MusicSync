@@ -21,7 +21,6 @@ class Satellite():
 
         # creacting all lists of points
         self.body = Satellite.draw_body(self, x, y, bodyType, body_width, body_height)
-
         self.pannels = []
         Satellite.add_pannel(self, velocity, pannel_width, pannel_height, num_wings)
 
@@ -202,13 +201,3 @@ class Satellite():
                 coords[1] += 1
             pygame.draw.polygon(surface, self.pannel_color, tri)
             pygame.draw.polygon(surface, (255,255,255), tri, 2)
-
-
-    """ 
-    if the coords are truple [(x,y)] instead of a list [[x,y]]
-    
-    def draw(self, surface):
-    for tri in self.all_triangles:
-        new_tri = [(x + self.dx, y) for (x, y) in tri]
-        pygame.draw.polygon(surface, self.color, new_tri)
-    """

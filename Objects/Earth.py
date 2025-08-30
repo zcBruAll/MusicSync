@@ -26,13 +26,6 @@ class Earth:
     def __init__(self, triangles):
         self.triangles = triangles
         self.randomOffset = random.randint(1,1000)
-        for y in range (len(self.triangles) - 1):
-            for x in range(len(self.triangles[y]) - 1):
-                n = self.noiseValue(x,y, scale = 0.05)
-                if (n > 0.5):
-                    self.triangles[y][x].chooseColor(colorGreen())
-                else:
-                    self.triangles[y][x].chooseColor(colorBlue())
 
     def noiseValue(self, x, y, scale = 0.1, octaves = 4):
         val = noise.pnoise2((x + self.randomOffset) * scale, (y + self.randomOffset) * scale, octaves)
@@ -51,7 +44,9 @@ class Earth:
         for y in range(len(self.triangles)):
             for x in range(len(self.triangles[y])):
                 n = self.noiseValue(x, y, scale=0.05)
-                if n > 0.5:
-                    self.triangles[y][x].chooseColor(colorGreen())
+                if (n > 0.5):
+                    color = randomColor('earth green')
                 else:
-                    self.triangles[y][x].chooseColor(colorBlue())
+                    color = randomColor('earth blue')
+                
+                self.triangles[y][x].chooseColor(color)

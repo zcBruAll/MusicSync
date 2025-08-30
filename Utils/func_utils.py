@@ -17,6 +17,12 @@ def randomColor(color_name):
     if color_name == 'multi':
         return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
     
+    if color_name == 'earth green':
+        return (0, random.randint(150, 200), 0)
+    
+    if color_name == 'earth blue':
+        return (0, random.randint(0, 50), random.randint(200, 225))
+    
 #       Functions
 def curveCalculation(x):
     return 1080 - ((x / 3200) * (1920 - x) + 100)

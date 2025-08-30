@@ -2,7 +2,7 @@ import math
 import pygame
 import random
 from Utils.Midi_Utils import *
-from Generators import *
+from Utils.Generators import *
 
 pygame.init()
 
@@ -12,13 +12,12 @@ height = 1080
 
 # Init params
 spacing = 24
-scale = 20.0
 cols = int(width / spacing) + 1
 rows = int((curveCalculation(960)) / spacing) + 1
 print(cols * rows)
 
 # Generate objects
-earth = generate_earth(rows, cols, spacing, scale)
+earth = generate_earth(rows, cols, spacing)
 stars = star_generator(600)
 
 notesList = []
@@ -33,7 +32,7 @@ screen = pygame.display.set_mode((width, height))
 clock = pygame.time.Clock()
 
 pygame.mixer.music.load("Sounds/PinkPanther_Both.mp3")
-pygame.mixer.music.play()
+# pygame.mixer.music.play()
 
 notesList = readMidi('Sounds/PinkPanther.midi')
 pianoNotes = seperateInstrument(notesList, 0)
@@ -76,10 +75,10 @@ while running:
         if star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
             stars.remove(star)
 
-    earth.draw(screen)
-    if timer > 3:
+    if timer % 3 == 0:
         earth.update()
-        timer = 0
+        
+    earth.draw(screen)
 
     # "Calculating" the soonest note to start
     if (((float(notesList[0][0].start))) < ((float(notesList[1][0].start)))):

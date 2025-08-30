@@ -1,6 +1,5 @@
 import random
 
-import pygame
 from Objects.Satellite import Satellite
 from Objects.Alien import Alien
 from Objects.Star import Star
@@ -43,10 +42,9 @@ def generate_Alien(x, y, lifetime, additions):
     elipse_height = random.randint(30, body_height)
     elipse_color = randomColor('multi')
     
-    light_color = (0,0,0)
+    light_color = randomColor('yellow')
     
-    return Alien(x, y, lifetime, additions, body_width, body_height, body_color, elipse_width, elipse_height, elipse_color)
-
+    return Alien(x, y, lifetime, additions, body_width, body_height, body_color, elipse_width, elipse_height, elipse_color, light_color)
 
 def star_generator(number):
     """
@@ -66,7 +64,7 @@ def star_generator(number):
         stars.append(Star(x, y, num_triangle, size, color))
     return stars
 
-def generate_earth(rows, cols, spacing, scale):
+def generate_earth(rows, cols, spacing):
     # Creating all the triangles before the loop makes for a way better performance
     triangleList = []
     for y in range(rows):
