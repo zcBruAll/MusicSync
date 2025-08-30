@@ -60,7 +60,7 @@ while running:
 
     if new_notes not in (None, []):
         star = get_random_stars(stars)
-        star.isMoving = True
+        star.set_moving()
         star.move_angle = random.uniform(0, 2 * math.pi)
 
     last_time = elapsed_time_s

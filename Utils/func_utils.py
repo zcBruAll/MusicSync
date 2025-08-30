@@ -29,7 +29,7 @@ def colorBlue():
     return ((0, random.randint(0, 100), random.randint(225, 255)))
 
 def get_random_stars(stars):
-    available = [s for s in stars if not s.isMoving]  # filtre
+    available = [s for s in stars if s.is_static()]  # filtre
     if available:  # vérifie qu'il en reste
         return random.choice(available)
     return None  # si toutes les étoiles bougent déjà

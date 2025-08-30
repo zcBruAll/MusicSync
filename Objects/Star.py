@@ -1,6 +1,10 @@
-import random
-import numpy as np
 import pygame, math
+from enum import Enum
+
+class StarState(Enum):
+    STATIC = 1
+    MOVING = 2
+    EXPLODING = 3
 
 class Star():
     def __init__(self, x, y, num_triangle, size, color=(255, 255, 255)):
@@ -10,10 +14,10 @@ class Star():
         self.size = size                  # taille (longueur du rayon)
         self.color = color
         self.rotation = 0               # rotation actuelle en radians
-        self.isMoving = False
         self.rotation_speed = 0.02       # vitesse de rotation
         self.move_angle = 0                # angle de déplacement
         self.trail = []  # stocke les anciennes positions
+        self.state = StarState.STATIC
 
     def draw(self, surface):
         """
@@ -70,12 +74,23 @@ class Star():
 
 
     def update(self, surface):
-        if self.isMoving:
-            self.draw_trail(surface)
-            self.rotation_speed = 0.1
-            self.move_angle += 0.01  # courbure
-            self.x += math.cos(self.move_angle) * 10
-            self.y += math.sin(self.move_angle) * 10
+        match self.state:
+            case StarState.STATIC:
+                pass
+            case StarState.MOVING:
+                self.movement_action(surface)
+            case StarState.EXPLODING:
+                self.explosion_action(surface)
+
+    def movement_action(self, surface):
+        self.draw_trail(surface)
+        self.rotation_speed = 0.1
+        self.move_angle += 0.01  # courbure
+        self.x += math.cos(self.move_angle) * 10
+        self.y += math.sin(self.move_angle) * 10
+        
+    def explosion_action(self, surface):
+        print("")
 
     def draw_trail(self, surface):
         back_angle = self.move_angle + math.pi  
@@ -104,3 +119,12 @@ class Star():
     def is_off_screen(self, width, height):
         return (self.x < -self.size or self.x > width + self.size or
                 self.y < -self.size or self.y > height + self.size)
+
+    def is_moving(self):
+        return self.state == StarState.MOVING
+
+    def is_static(self):
+        return self.state == StarState.STATIC
+    
+    def set_moving(self):
+        self.state = StarState.MOVING
