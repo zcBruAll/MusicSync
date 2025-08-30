@@ -44,7 +44,7 @@ defaultLeft = True
 
 notesList = []
 triangleList = []  # Triangles for the planet
-objects = []  # satellites list
+objects = []  # satellites and UFO list
 
 timer = 0
 videoTimer = -(15 * float(1 / 60))
@@ -134,9 +134,9 @@ for y in range (len(triangleList) - 1):
     for x in range(len(triangleList[y]) - 1):
         n = noiseValue(x,y, scale = 0.05)
         if (n > 0.5):
-            triangleList[y][x].chooseColor(colorGreen())
+            triangleList[y][x].chooseColor(randomColor('earth green'))
         else:
-            triangleList[y][x].chooseColor(colorBlue())
+            triangleList[y][x].chooseColor(randomColor('earth blue'))
 
 
 start_time = pygame.time.get_ticks()

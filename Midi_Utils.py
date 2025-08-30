@@ -64,8 +64,8 @@ def velocityRange(note):
     elif note.velocity <= 80:
         return 5
 
-#fonctions tests
+""" fonctions tests
 notes = readMidi('Sounds/PinkPanther.midi')
 instru = seperateInstrument(notes, 0)
 tmp = getVelocity(instru)
-print(tmp)
+print(tmp) """

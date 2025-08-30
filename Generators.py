@@ -1,6 +1,5 @@
 import random
 
-import pygame
 from Objects.Satellite import Satellite
 from Objects.Alien import Alien
 from Objects.Star import Star
@@ -41,9 +40,9 @@ def generate_Alien(x, y, lifetime, additions):
     elipse_height = random.randint(30, body_height)
     elipse_color = randomColor('multi')
     
-    light_color = (0,0,0)
+    light_color = randomColor('yellow')
     
-    return Alien(x, y, lifetime, additions, body_width, body_height, body_color, elipse_width, elipse_height, elipse_color)
+    return Alien(x, y, lifetime, additions, body_width, body_height, body_color, elipse_width, elipse_height, elipse_color, light_color)
 
 def randomColor(color_name):
     if color_name == 'yellow':
@@ -61,6 +60,12 @@ def randomColor(color_name):
     
     if color_name == 'multi':
         return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
+    
+    if color_name == 'earth green':
+        return (0, random.randint(150, 255), 0)
+    
+    if color_name == 'earth blue':
+        return (0, random.randint(0, 100), random.randint(225, 255))
 
 def star_generator(number):
     """

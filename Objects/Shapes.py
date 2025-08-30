@@ -84,16 +84,3 @@ def drawSemiCercle(cx, cy, radius, segment, orientation = 1):
         triangles.append([[cx,cy], point1, point2])
         
     return triangles
-
-def randomColor(color_name):
-    if color_name == 'yellow':
-        return (255, random.randint(230, 255), random.randint(1,255))
-    
-    if color_name == 'purple':
-        return (random.randint(160, 190), random.randint(150, 175), random.randint(200, 220))
-    
-    if color_name == 'white':
-        return (random.randint(227, 255),  random.randint(227, 255),  random.randint(227, 255))
-    
-    if color_name == 'gray':
-        return (random.randint(92, 183), random.randint(92, 183), random.randint(92, 183))
