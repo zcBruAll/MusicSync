@@ -18,7 +18,7 @@ def seperateInstrument(all_notes, instru):
     #piano
     if instru == 1:
         return all_notes[1]
-
+    
 def noteLifetime(note):
     return float(note.end - note.start)  
 
