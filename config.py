@@ -1,10 +1,13 @@
 # -------------------- Input/Output Configuration --------------------
-INPUT_FILE = "Sounds/Ecossaise_Both.mp3"  # File name and path of the input file
+INPUT_FILE = "Sounds/SSB.mp3"  # File name and path of the input file
 OUTPUT_GIF = "Output/cqt_analysis.gif"     # File name and path of the output gif  
-OUTPUT_MIDI = "Output/detected_notes"      # File name and path of the output MIDI file
+OUTPUT_PIANO_MIDI = "Output/detected_notes0.mid"      # File name and path of the output MIDI file
+OUTPUT_TRUMPET_MIDI = "Output/detected_notes73.mid"
+OUTPUT_BOTH_MIDI = "Output/detected_notesboth.mid"
+REF_MIDI = "Sounds/SSB.mid"
 
 # -------------------- Processing Mode Configuration --------------------
-ENABLE_ANIMATION = False  # Set to True for visual analysis, False for faster processing
+ENABLE_GRAPH_ANIMATION = False  # Set to True for visual analysis, False for faster processing
 
 # -------------------- Animation Parameters --------------------
 FPS = 30  # Frames per second for animation (if enabled)
