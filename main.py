@@ -1,6 +1,7 @@
 import math
 import pygame
 import random
+from Objects.Moon import *
 from Utils.Midi_Utils import *
 from Utils.Generators import *
 
@@ -11,14 +12,12 @@ width = 1920
 height = 1080
 
 # Init params
-spacing = 20
+spacing = 24
 cols = int(width / spacing) + 1
 rows = int((curveCalculation(width/2)) / spacing) + 1
-print(cols * rows)
+
 timer = 0
 
-# Generate objects
-earth = generate_earth(rows, cols, spacing)
 stars = star_generator(600)
 objects = []
 
@@ -26,8 +25,14 @@ objects = []
 screen = pygame.display.set_mode((width, height))
 clock = pygame.time.Clock()
 
-pygame.mixer.music.load("Sounds/PinkPanther.midi")
+pygame.mixer.music.load("Sounds/Ecossaise_Both.mp3")
 pygame.mixer.music.play()
+
+music_length = 60000
+
+# Generate objects
+earth = generate_earth(rows, cols, spacing, music_length)
+moon = Moon(rows, cols, spacing, earth.center_x, earth.center_y * 2, orbit_radius=2150, moon_radius=200, collide_earth_ms=music_length)
 
 notesList = readMidi('Sounds/Ecossaise_Beethoven.mid')
 pianoNotes = seperateInstrument(notesList, 0)
@@ -56,18 +61,16 @@ while running:
     new_trumpet_notes = [note for note in trumpetNotes
             if last_time < note.start <= elapsed_time_s]
         
-    if new_trumpet_notes not in (None, []):
+    for note in new_trumpet_notes:
         star = get_random_stars(stars)
-        # star.set_exploding()
+        star.set_exploding()
         star.move_angle = random.uniform(0, 2 * math.pi)
 
-    if new_piano_notes not in (None, []):
+    for note in new_piano_notes:
         star = get_random_stars(stars)
         star.set_moving()
         star.move_angle = random.uniform(0, 2 * math.pi)
-
-    last_time = elapsed_time_s
-
+            
     """
     for each star update graphics and rotate them
     """
@@ -78,11 +81,12 @@ while running:
 
         if star.state is None or star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
             stars.remove(star)
-
-    if timer % 3 == 0:
-        earth.update()
-        
+            
+    earth.update(elapsed_time_s*1000)
     earth.draw(screen)
+        
+    moon.update(elapsed_time_s*1000)
+    moon.draw(screen)
         
     # Find the start for each instrument
     new_trumpet_notes = [note for note in trumpetNotes
@@ -118,5 +122,6 @@ while running:
 
     pygame.display.flip()
     clock.tick(60)  # limits FPS to 60
+    # print(clock.get_fps())
 
 pygame.quit()

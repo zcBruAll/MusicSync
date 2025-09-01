@@ -26,11 +26,11 @@ class Moon(StellarObject):
             for x in range(self.cols):
                 x0 = x * self.spacing - 1920 // 2
                 x1 = (x + 1) * self.spacing - 1920 // 2
-                y0 = y * self.spacing
-                y1 = (y + 1) * self.spacing
+                y0 = y * self.spacing - 1080 // 2
+                y1 = (y + 1) * self.spacing - 1080 // 2
 
                 def clamp(px, py):
-                    dx, dy = px, py - self.center_y
+                    dx, dy = px, py
                     if dx * dx + dy * dy > self.moon_radius * self.moon_radius:
                         dist = (dx * dx + dy * dy) ** 0.5
                         dx = dx / dist * self.moon_radius

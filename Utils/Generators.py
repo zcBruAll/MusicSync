@@ -3,7 +3,9 @@ import random
 from Objects.Satellite import Satellite
 from Objects.Alien import Alien
 from Objects.Star import Star
-from Objects.Earth import Earth, EarthTriangle
+from Objects.Earth import *
+from Objects.Moon import *
+from Objects.StellarObject import *
 from Utils.func_utils import *
 
 SCREEN_WIDTH = 1920
@@ -64,9 +66,11 @@ def star_generator(number):
         stars.append(Star(x, y, num_triangle, size, color))
     return stars
 
-def generate_earth(rows, cols, spacing):
-    # Creating all the triangles before the loop makes for a way better performance
+def generate_earth(rows, cols, spacing, music_length=60000, width=1920, height=1080):
     triangleList = []
+    center_x = width // 2
+    center_y = height  # Terre posée en bas de l’écran
+
     for y in range(rows):
         tempList = []
         for x in range(cols):
@@ -76,24 +80,28 @@ def generate_earth(rows, cols, spacing):
             x1 = (x + 1) * spacing
             x2 = x * spacing
             x3 = (x + 1) * spacing
-            y0 = 1080 - (y * spacing)
-            y1 = 1080 - (y * spacing)
-            y2 = 1080 - (y + 1) * spacing
-            y3 = 1080 - (y + 1) * spacing
+            y0 = height - (y * spacing)
+            y1 = height - (y * spacing)
+            y2 = height - (y + 1) * spacing
+            y3 = height - (y + 1) * spacing
 
-            # Here we make it so that if any vertex goes "above" the curve it will relocate to the curve instead
-            if (y0 < curveCalculation(x0)):
-                y0 = curveCalculation(x0)
-            if (y1 < curveCalculation(x1)):
-                y1 = curveCalculation(x1)
-            if (y2 < curveCalculation(x2)):
-                y2 = curveCalculation(x2)
-            if (y3 < curveCalculation(x3)):
-                y3 = curveCalculation(x3)
+            # Calcul de la courbe terrestre
+            y0_temp = curveCalculation(x0)
+            y1_temp = curveCalculation(x1)
+            y2_temp = curveCalculation(x2)
+            y3_temp = curveCalculation(x3)
 
-            tempList.append((EarthTriangle((x0, y0), (x1, y1), (x2, y2))))
-            tempList.append(EarthTriangle((x1, y1), (x3, y3), (x2, y2)))
+            if y0 < y0_temp:
+                y0 = y0_temp
+            if y1 < y1_temp:
+                y1 = y1_temp
+            if y2 < y2_temp:
+                y2 = y2_temp
+            if y3 < y3_temp:
+                y3 = y3_temp
+
+            tempList.append(StellarObjectTriangle((x0, y0), (x1, y1), (x2, y2)))
+            tempList.append(StellarObjectTriangle((x1, y1), (x3, y3), (x2, y2)))
         triangleList.append(tempList)
-    return Earth(triangleList)
-        # Here we create a list of lists with inside each tuple of EarthTriangles that form a rectangle
-        # It's made like this to easily access the colors of nearby triangles
+
+    return Earth(triangleList, center_x, center_y, music_length)
