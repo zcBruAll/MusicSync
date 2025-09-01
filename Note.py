@@ -207,7 +207,7 @@ class NoteTracker:
         
         # Save MIDI file
         try:
-            mid.save(output_file + str(program) + ".mid")
+            mid.save(output_file)
             print(f"\nMIDI file exported successfully: {output_file}")
             print(f"  - {len(all_notes)} notes exported")
             print(f"  - Tempo: {tempo_bpm} BPM")
