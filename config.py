@@ -1,5 +1,5 @@
 # -------------------- Input/Output Configuration --------------------
-INPUT_FILE = "Sounds/Ecossaise_Trumpet.mp3"  # File name and path of the input file
+INPUT_FILE = "Sounds/Ecossaise_Both.mp3"  # File name and path of the input file
 OUTPUT_GIF = "Output/cqt_analysis.gif"     # File name and path of the output gif  
 OUTPUT_MIDI = "Output/detected_notes"      # File name and path of the output MIDI file
 
@@ -8,6 +8,11 @@ ENABLE_ANIMATION = False  # Set to True for visual analysis, False for faster pr
 
 # -------------------- Animation Parameters --------------------
 FPS = 30  # Frames per second for animation (if enabled)
+
+HARMONIC_TEMPLATES = {
+    "piano":   [1.0, 0.8, 0.5, 0.3, 0.2],
+    "trumpet": [0.45, 0.5, 1.0, 0.6, 0.8],   # brighter tail than piano sustain
+}
 
 # -------------------- CQT-Specific Parameters (Replaces FFT_WINDOWS_SECONDS) --------------------
 # CQT provides better frequency resolution for musical analysis
@@ -30,7 +35,7 @@ TOP_NOTES = 5  # Number of strongest peaks to show as red labels in animation
 # Peak Detection Settings
 MIN_PEAK_HEIGHT = 0.06      # Lower threshold for better sensitivity with CQT
 MIN_PEAK_DISTANCE = 2        # Bins between peaks (in CQT space, ~1 semitone)
-PEAK_PROMINENCE = 0.05       # Minimum prominence to distinguish real peaks from noise
+PEAK_PROMINENCE = 0.07       # Minimum prominence to distinguish real peaks from noise
 
 # Harmonic Analysis Settings  
 MAX_HARMONICS = 10           # Maximum harmonics to analyze per fundamental
@@ -74,6 +79,9 @@ PLOT_FREQUENCY_RESPONSE = False     # Generate frequency response plots
 PIANO_HARMONIC_THRESHOLD = 4        # Minimum harmonics for piano classification
 PIANO_FREQUENCY_WEIGHT = 0.4        # Weight for frequency-based piano scoring
 PIANO_CONFIDENCE_THRESHOLD = 0.2    # Threshold for piano vs other classification
+PIANO_CENTROID_MAX = 800
+PIANO_ROLLOFF_MAX = 3000
+PIANO_FLATNESS_MAX = 0.2
 
 # -------------------- Performance Monitoring --------------------
 ENABLE_TIMING_ANALYSIS = True       # Track processing times for optimization

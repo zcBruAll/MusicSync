@@ -309,7 +309,7 @@ print(f"\nTotal processing time with CQT: {total_time:.2f} seconds")
 print("Enhanced polyphonic analysis complete!")
 
 # When both instruments
-# combine_midis(OUTPUT_MIDI + "0.mid", OUTPUT_MIDI + "73.mid", OUTPUT_MIDI + "both.mid")
+combine_midis(OUTPUT_MIDI + "0.mid", OUTPUT_MIDI + "73.mid", OUTPUT_MIDI + "both.mid")
 # generate_graph("Sounds/Ecossaise_Beethoven.mid", [OUTPUT_MIDI + "both.mid"])
 
-generate_graph("Output/Ecossaise_Beethoven.mid", ["Output/saved_data.mid", OUTPUT_MIDI + "73.mid"])
+generate_graph("Output/Ecossaise_Beethoven.mid", ["Output/saved_data.mid", OUTPUT_MIDI + "both.mid"])

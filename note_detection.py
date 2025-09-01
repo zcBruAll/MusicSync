@@ -54,15 +54,13 @@ def detect_notes_with_cqt_onsets(cqt_spectrum, cqt_frequencies, current_time, on
     # at regular intervals in the logarithmic frequency space
     fundamentals = group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies)
     
+    centroid, rolloff, flatness = compute_timbre_feature(cqt_spectrum, cqt_frequencies)
+    
     # Convert to musical notes with enhanced scoring
     notes = []
-    for f0, energy, num_harmonics, harmonic_strength in fundamentals[:max_notes]:
+    for f0, energy, num_harmonics, harmonic_strength, instrument, pattern_score in fundamentals[:max_notes]:
         if FREQ_MIN <= f0 <= FREQ_MAX and energy >= adjusted_threshold:
-            try:
-                # Convert frequency to musical note
-                midi = librosa.hz_to_midi(f0)
-                note_name = librosa.midi_to_note(midi, octave=True)
-                
+            try:                
                 # Enhanced confidence scoring considers:
                 # 1. Base energy from peak detection
                 # 2. Number of supporting harmonics (more = better)
@@ -70,10 +68,20 @@ def detect_notes_with_cqt_onsets(cqt_spectrum, cqt_frequencies, current_time, on
                 # 4. Onset proximity boost
                 confidence = energy * (1 + 0.15 * (num_harmonics - 1)) * harmonic_strength * onset_boost
                 
-                # Simple instrument classification placeholder
-                # This could be enhanced with spectral characteristics analysis
-                # is_piano = classify_instrument_simple(f0, confidence, num_harmonics)
-                is_piano = True
+                # Determine instrument based on harmonic pattern matching
+                is_piano = classify_instrument(
+                    f0,
+                    confidence,
+                    num_harmonics,
+                    pattern_score,
+                    centroid,
+                    rolloff,
+                    flatness,
+                )
+                
+                # Convert frequency to musical note
+                midi = librosa.hz_to_midi(f0)
+                note_name = librosa.midi_to_note(midi, octave=True)
                 
                 notes.append((f0, confidence, note_name, is_piano))
             except Exception as e:
@@ -120,6 +128,85 @@ def find_cqt_peaks(cqt_spectrum, cqt_frequencies, min_height=MIN_PEAK_HEIGHT):
     sort_idx = np.argsort(peak_mags)[::-1]
     return peak_freqs[sort_idx], peak_mags[sort_idx], peaks[sort_idx]
 
+def compute_timbre_feature(cqt_spectrum, cqt_frequencies):
+    """
+    Compute basic features used for timbre-based instrument classification.
+    
+    Returns:
+        centroid: Spectral centroid in Hz
+        rolloff: Spectral roll-off frequency (85% energy) in Hz
+        flatness: Spectral flatness mesure (0=tone, 1=noise)
+    """
+    magnitude = np.asarray(cqt_spectrum).astype(float)
+    if magnitude.size == 0 or np.sum(magnitude) == 0:
+        return 0.0, 0.0, 0.0
+    
+    centroid = np.sum(cqt_frequencies * magnitude) / np.sum(magnitude)
+    
+    cumulative_energy = np.cumsum(magnitude)
+    rolloff_idx = np.searchsorted(cumulative_energy, 0.85 * cumulative_energy[-1])
+    rolloff = cqt_frequencies[min(rolloff_idx, len(cqt_frequencies) - 1)]
+    
+    flatness = np.exp(np.mean(np.log(magnitude + 1e-10))) / (np.mean(magnitude) + 1e-10)
+    
+    return centroid, rolloff, flatness
+
+def classify_instrument(frequency, confidence, num_harmonics, pattern_score, centroid, rolloff, flatness):
+    """
+    Instrument classification using sinmple spectral heuristics.
+    
+    Args:
+        frequency: Fundamental frequency of the note
+        confidence: Detection confidence
+        num_harmonics: Number of detected harmonics
+        centroid: Spectral centroid (Hz)
+        rolloff: Spectral roll-off frequency (Hz)
+        flatness: Spectral flatness measure
+        
+    Returns:
+        Boolean: True if classified as piano, False for trumpet
+    """
+    
+    piano_score = 0.0
+    
+    # Frequency range scoring
+    if 80 <= frequency <= 1000:
+        piano_score += 0.3
+    elif frequency < 80 or frequency > 2000:
+        piano_score -= 0.2
+        
+    if num_harmonics < 4:
+        piano_score += 0.2
+    elif num_harmonics >= 5:
+        piano_score -= 0.2
+        
+    if pattern_score > 0.75:
+        piano_score += 0.2
+    else:
+        piano_score -= 0.2
+        
+    if confidence > 0.8:
+        piano_score += 0.1
+    else:
+        piano_score -= 0.1
+        
+    if centroid < PIANO_CENTROID_MAX:
+        piano_score += 0.2
+    else:
+        piano_score -= 0.2
+        
+    if rolloff < PIANO_ROLLOFF_MAX:
+        piano_score += 0.1
+    else:
+        piano_score -= 0.1
+
+    if flatness < PIANO_FLATNESS_MAX:
+        piano_score += 0.1
+    else:
+        piano_score -= 0.1
+        
+    return piano_score > 0.35
+
 def group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies, max_harmonics=MAX_HARMONICS):
     """
     Group CQT peaks into fundamental frequencies and their harmonics.
@@ -136,7 +223,8 @@ def group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies, max_harmonics=MA
         max_harmonics: Maximum harmonics to consider
         
     Returns:
-        List of (fundamental_freq, total_energy, num_harmonics, harmonic_strength) tuples
+        List of (fundamental_freq, total_energy, num_harmonics, 
+                harmonic_strength, instrument, pattern_score) tuples
     """
     if len(peak_freqs) == 0:
         return []
@@ -191,8 +279,10 @@ def group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies, max_harmonics=MA
         # Evaluate the quality of this fundamental candidate
         num_harmonics = len(harmonics)
         
-        # Calculate harmonic strength - how well do the harmonics follow expected pattern?
+        # Calculate harmonic strength and match harmonic pattern
         harmonic_strength = calculate_harmonic_strength(harmonics)
+        
+        instrument, pattern_score = match_harmonic_pattern(harmonics)
         
         # Only consider as fundamental if:
         # 1. It has supporting harmonics OR is very strong
@@ -205,12 +295,46 @@ def group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies, max_harmonics=MA
                 decay_factor = HARMONIC_WEIGHT_DECAY ** (harm_num - 1)
                 total_energy += mag * decay_factor
             
-            fundamentals.append((f0_candidate, total_energy, num_harmonics, harmonic_strength))
+            fundamentals.append((f0_candidate, total_energy, num_harmonics,
+                                 harmonic_strength, instrument, pattern_score))
             used_peaks.update(harmonic_indices)
     
     # Sort fundamentals by total energy (strongest first)
     fundamentals.sort(key=lambda x: x[1], reverse=True)
     return fundamentals
+
+def match_harmonic_pattern(harmonics, patterns=HARMONIC_TEMPLATES):
+    """Compare detected harmonics to known instrument patterns.
+
+    Args:
+        harmonics: List of (freq, mag, harmonic_number) tuples
+        patterns: Dict mapping instrument name to expected amplitude ratios
+
+    Returns:
+        Tuple of (best_instrument, match_score)
+    """
+    if not harmonics:
+        return None, 0.0
+
+    # Ensure harmonics are ordered and compute amplitude ratios
+    harmonics = sorted(harmonics, key=lambda x: x[2])
+    fundamental_mag = harmonics[0][1] if harmonics[0][1] > 0 else 1e-6
+    ratios = [h[1] / fundamental_mag for h in harmonics]
+
+    best_name = None
+    best_score = -np.inf
+
+    for name, pattern in patterns.items():
+        usable = min(len(pattern), len(ratios))
+        if usable == 0:
+            continue
+        error = np.mean([abs(ratios[i] - pattern[i]) for i in range(usable)])
+        score = 1 - error  # Higher is better
+        if score > best_score:
+            best_score = score
+            best_name = name
+
+    return best_name, max(0.0, best_score)
 
 def calculate_harmonic_strength(harmonics):
     """
@@ -246,59 +370,6 @@ def calculate_harmonic_strength(harmonics):
             strength_scores.append(strength_score)
     
     return np.mean(strength_scores) if strength_scores else 0.5
-
-def classify_instrument_simple(frequency, confidence, num_harmonics):
-    """
-    Simple instrument classification based on spectral characteristics.
-    
-    This is a placeholder for more sophisticated instrument recognition.
-    In a full system, you would use:
-    - Spectral centroid analysis
-    - Attack/decay envelope analysis  
-    - Formant analysis
-    - Machine learning classifiers
-    
-    Args:
-        frequency: Fundamental frequency
-        confidence: Detection confidence
-        num_harmonics: Number of detected harmonics
-        
-    Returns:
-        Boolean: True if classified as piano, False otherwise
-    """
-    # Simple heuristic based on harmonic content and frequency range
-    # Piano notes typically have:
-    # - Rich harmonic content (many harmonics)
-    # - Strong fundamental
-    # - Characteristic frequency ranges
-    
-    # Piano is more likely for:
-    # 1. Strong fundamentals with many harmonics
-    # 2. Frequencies in typical piano range (A0 to C8)
-    # 3. High confidence detections
-    
-    piano_score = 0
-    
-    # Frequency range scoring
-    if 80 <= frequency <= 1000:  # Prime piano range
-        piano_score += 0.4
-    elif frequency < 80 or frequency > 2000:  # Less common for piano
-        piano_score -= 0.2
-    
-    # Harmonic content scoring
-    if num_harmonics >= 4:  # Rich harmonic content
-        piano_score += 0.3
-    elif num_harmonics <= 2:  # Poor harmonic content
-        piano_score -= 0.2
-    
-    # Confidence scoring
-    if confidence > 0.8:
-        piano_score += 0.3
-    elif confidence < 0.4:
-        piano_score -= 0.2
-    
-    # Return True if piano score is positive
-    return piano_score > 0.2
 
 def top_note_labels_from_cqt(cqt_spectrum, cqt_frequencies, top_k=TOP_NOTES):
     """
@@ -343,22 +414,3 @@ def top_note_labels_from_cqt(cqt_spectrum, cqt_frequencies, top_k=TOP_NOTES):
             continue
     
     return labels
-
-# -------------------- Legacy STFT Support Functions (for compatibility) --------------------
-# These functions maintain compatibility with any code that might still reference them
-
-def detect_notes_with_onsets(spectrum, frequencies, current_time, onset_times, max_notes=5):
-    """
-    Legacy function maintained for compatibility.
-    Redirects to CQT-based detection with appropriate warnings.
-    """
-    print("Warning: Using legacy STFT-based detection. Consider updating to CQT-based method.")
-    return detect_notes_with_cqt_onsets(spectrum, frequencies, current_time, onset_times, max_notes)
-
-def detect_simultaneous_notes(spectrum, frequencies, max_notes=5):
-    """
-    Legacy function for backward compatibility.
-    """
-    print("Warning: Using legacy STFT-based detection without onset information.")
-    # Convert to new format by creating dummy onset times
-    return detect_notes_with_cqt_onsets(spectrum, frequencies, 0.0, [], max_notes)
