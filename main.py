@@ -54,12 +54,12 @@ while running:
     
     #Drawing background
     elapsed_time_s = round((pygame.time.get_ticks() - start_time) / 1000,2)
-    new_notes = [note for note in trumpetNotes 
-                 if last_time < note.start <= elapsed_time_s]
+    new_notes = [note for note in trumpetNotes
+                if last_time < note.start <= elapsed_time_s]
 
     if new_notes not in (None, []):
         star = get_random_stars(stars)
-        star.set_moving()
+        star.set_exploding()
         star.move_angle = random.uniform(0, 2 * math.pi)
 
     last_time = elapsed_time_s

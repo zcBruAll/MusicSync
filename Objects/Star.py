@@ -1,10 +1,45 @@
 import pygame, math
 from enum import Enum
+import math, random, pygame
+
 
 class StarState(Enum):
     STATIC = 1
     MOVING = 2
     EXPLODING = 3
+    
+class ExplosionFragment:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.angle = random.uniform(0, 2 * math.pi)
+        self.speed = random.uniform(3, 8)
+        self.size = random.randint(5, 15)
+        self.color = (255, random.randint(100, 200), random.randint(0, 100))  # jaune/orange/rouge
+        self.life = 60  # durée de vie (en frames, ~1s à 60fps)
+
+    def update(self):
+        if self.life <= 0:
+            return
+        self.x += math.cos(self.angle) * self.speed
+        self.y += math.sin(self.angle) * self.speed
+        self.speed *= 0.95  # ralentissement
+        self.life -= 1      # décrément durée de vie
+
+        # effet feu d’artifice → couleur qui s’assombrit
+        fade = max(0, int(255 * (self.life / 60)))
+        self.color = (fade, random.randint(50, 150), 0)
+
+    def draw(self, surface):
+        if self.life <= 0:
+            return
+        points = []
+        for i in range(3):
+            angle = self.angle + i * (2 * math.pi / 3)
+            px = self.x + math.cos(angle) * self.size
+            py = self.y + math.sin(angle) * self.size
+            points.append((px, py))
+        pygame.draw.polygon(surface, self.color, points)
 
 class Star():
     def __init__(self, x, y, num_triangle, size, color=(255, 255, 255)):
@@ -18,6 +53,8 @@ class Star():
         self.move_angle = 0                # angle de déplacement
         self.trail = []  # stocke les anciennes positions
         self.state = StarState.STATIC
+        self.fragments = []  # stocker les fragments d'explosion
+
 
     def draw(self, surface):
         """
@@ -71,6 +108,10 @@ class Star():
 
             # dessiner le triangle
             pygame.draw.polygon(surface, self.color, [p1, p2, tip])
+        
+        if self.state == StarState.EXPLODING:
+            for frag in self.fragments:
+                frag.draw(surface) 
 
 
     def update(self, surface):
@@ -78,19 +119,28 @@ class Star():
             case StarState.STATIC:
                 pass
             case StarState.MOVING:
-                self.movement_action(surface)
+                self.travel(surface)
             case StarState.EXPLODING:
-                self.explosion_action(surface)
+                self.explode()
 
-    def movement_action(self, surface):
+    def travel(self, surface):
         self.draw_trail(surface)
         self.rotation_speed = 0.1
         self.move_angle += 0.01  # courbure
         self.x += math.cos(self.move_angle) * 10
         self.y += math.sin(self.move_angle) * 10
         
-    def explosion_action(self, surface):
-        print("")
+    def explode(self):
+        if not self.fragments:
+            self.fragments = [ExplosionFragment(self.x, self.y) for _ in range(40)]
+
+        # Update fragments existants
+        for frag in self.fragments:
+            frag.update()
+
+        # Si tous les fragments sont morts → l’étoile n’existe plus
+        self.fragments = [f for f in self.fragments if f.life > 0]
+
 
     def draw_trail(self, surface):
         back_angle = self.move_angle + math.pi  
@@ -128,3 +178,6 @@ class Star():
     
     def set_moving(self):
         self.state = StarState.MOVING
+
+    def set_exploding(self):
+        self.state = StarState.EXPLODING
