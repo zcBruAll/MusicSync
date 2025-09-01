@@ -4,10 +4,8 @@ from Objects.StellarObject import *
 from Utils.func_utils import *
 
 class Moon(StellarObject):
-    def __init__(self, rows, cols, spacing, earth_x, earth_y, orbit_radius, moon_radius=120, collide_earth_ms=60000):
+    def __init__(self, spacing, earth_x, earth_y, orbit_radius, moon_radius=120, collide_earth_ms=60000):
         super().__init__([], earth_x - orbit_radius, earth_y)
-        self.rows = rows
-        self.cols = cols
         self.spacing = spacing
         self.earth_x = earth_x
         self.earth_y = earth_y
@@ -17,6 +15,8 @@ class Moon(StellarObject):
         self.collide_earth_ms = collide_earth_ms
         self.angle = 0.0          # position sur l’orbite
         self.angular_speed = 0.02 # vitesse de rotation
+        self.cols = int((2 * moon_radius) / spacing) + 1
+        self.rows = int((2 * moon_radius) / spacing) + 1
         self.regenerate_triangles()
 
     def regenerate_triangles(self):
@@ -24,15 +24,17 @@ class Moon(StellarObject):
         for y in range(self.rows):
             tempList = []
             for x in range(self.cols):
-                x0 = x * self.spacing - 1920 // 2
-                x1 = (x + 1) * self.spacing - 1920 // 2
-                y0 = y * self.spacing - 1080 // 2
-                y1 = (y + 1) * self.spacing - 1080 // 2
+                # Grille locale centrée sur la lune
+                x0 = x * self.spacing - self.moon_radius
+                x1 = (x + 1) * self.spacing - self.moon_radius
+                y0 = y * self.spacing - self.moon_radius
+                y1 = (y + 1) * self.spacing - self.moon_radius
 
                 def clamp(px, py):
                     dx, dy = px, py
-                    if dx * dx + dy * dy > self.moon_radius * self.moon_radius:
-                        dist = (dx * dx + dy * dy) ** 0.5
+                    dist2 = dx * dx + dy * dy
+                    if dist2 > self.moon_radius * self.moon_radius:
+                        dist = math.sqrt(dist2)
                         dx = dx / dist * self.moon_radius
                         dy = dy / dist * self.moon_radius
                     return (dx + self.center_x, dy + self.center_y)
@@ -46,6 +48,7 @@ class Moon(StellarObject):
                 tempList.append(StellarObjectTriangle(p1, p3, p2))
             triangleList.append(tempList)
         self.triangles = triangleList
+
 
     def update(self, elapsed_time_ms):
         e_m_distance = 650
