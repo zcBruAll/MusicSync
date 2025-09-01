@@ -43,10 +43,16 @@ class Earth:
         #   Changes the color just like during initialization, while moving the offset to rotate the planet
         for y in range(len(self.triangles)):
             for x in range(len(self.triangles[y])):
-                n = self.noiseValue(x, y, scale=0.05)
-                if (n > 0.5):
-                    color = randomColor('earth green')
+                n = self.noiseValue(x, y, scale=0.04)
+                if n < 0.4:  # Océan profond
+                    color = (0, 0, int(150 + 100 * n))
+                elif n < 0.5:  # Côtes
+                    color = (20, int(100 + 100 * (n - 0.4) * 10), 200)
+                elif n < 0.65:  # Plaine verte
+                    color = (int(30 + 50 * n), int(120 + 100 * n), int(30 + 20 * n))
+                elif n < 0.7:  # Montagnes
+                    color = (int(60 + 150 * n), int(60 + 150 * n), int(60 + 150 * n))
                 else:
-                    color = randomColor('earth blue')
-                
+                    color = (int(90 + 150 * n), int(90 + 150 * n), int(90 + 150 * n))
+
                 self.triangles[y][x].chooseColor(color)

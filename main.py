@@ -11,14 +11,13 @@ width = 1920
 height = 1080
 
 # Init params
-spacing = 24
+spacing = 20
 cols = int(width / spacing) + 1
 rows = int((curveCalculation(960)) / spacing) + 1
 print(cols * rows)
 
 # Generate objects
 earth = generate_earth(rows, cols, spacing)
-stars = star_generator(600)
 
 notesList = []
 objects = []  # satellites list
@@ -31,13 +30,14 @@ soonestNote = 0
 screen = pygame.display.set_mode((width, height))
 clock = pygame.time.Clock()
 
-pygame.mixer.music.load("Sounds/PinkPanther_Both.mp3")
-# pygame.mixer.music.play()
+pygame.mixer.music.load("Sounds/PinkPanther.midi")
+pygame.mixer.music.play()
 
-notesList = readMidi('Sounds/PinkPanther.midi')
+notesList = readMidi('Sounds/Ecossaise_Beethoven.mid')
 pianoNotes = seperateInstrument(notesList, 0)
 trumpetNotes = seperateInstrument(notesList, 1)
 minPitch, maxPitch = get_min_max_pitch(notesList)
+stars = star_generator(len(pianoNotes) + len(trumpetNotes))
 
 # Checks each x and y position for the triangles, assigns them a noise value, and then a color based on it
 start_time = pygame.time.get_ticks()
@@ -54,12 +54,20 @@ while running:
     
     #Drawing background
     elapsed_time_s = round((pygame.time.get_ticks() - start_time) / 1000,2)
-    new_notes = [note for note in trumpetNotes
+    new_piano_notes = [note for note in pianoNotes
                 if last_time < note.start <= elapsed_time_s]
 
-    if new_notes not in (None, []):
+    new_trumpet_notes = [note for note in trumpetNotes
+            if last_time < note.start <= elapsed_time_s]
+        
+    if new_trumpet_notes not in (None, []):
         star = get_random_stars(stars)
         star.set_exploding()
+        star.move_angle = random.uniform(0, 2 * math.pi)
+
+    if new_piano_notes not in (None, []):
+        star = get_random_stars(stars)
+        star.set_moving()
         star.move_angle = random.uniform(0, 2 * math.pi)
 
     last_time = elapsed_time_s
@@ -71,8 +79,8 @@ while running:
         star.update(screen)
         star.draw(screen)
         star.rotation += star.rotation_speed
-        
-        if star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
+
+        if star.state is None or star.is_off_screen(SCREEN_WIDTH, SCREEN_HEIGHT):
             stars.remove(star)
 
     if timer % 3 == 0:

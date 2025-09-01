@@ -61,6 +61,11 @@ class Star():
         Dessine une étoile avec un corps central (n_branches côtés)
         et un triangle sur chaque arête.
         """
+        if self.state == StarState.EXPLODING:
+            for frag in self.fragments:
+                frag.draw(surface) 
+            return
+        
         step = 2 * math.pi / self.num_triangle
 
         polygon_points = []
@@ -109,9 +114,7 @@ class Star():
             # dessiner le triangle
             pygame.draw.polygon(surface, self.color, [p1, p2, tip])
         
-        if self.state == StarState.EXPLODING:
-            for frag in self.fragments:
-                frag.draw(surface) 
+        
 
 
     def update(self, surface):
@@ -140,6 +143,9 @@ class Star():
 
         # Si tous les fragments sont morts → l’étoile n’existe plus
         self.fragments = [f for f in self.fragments if f.life > 0]
+        
+        if not self.fragments:
+            self.state = None
 
 
     def draw_trail(self, surface):
@@ -175,7 +181,7 @@ class Star():
 
     def is_static(self):
         return self.state == StarState.STATIC
-    
+
     def set_moving(self):
         self.state = StarState.MOVING
 

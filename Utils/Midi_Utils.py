@@ -61,7 +61,7 @@ def velocityRange(note):
         return 3
     elif note.velocity <= 75:
         return 4
-    elif note.velocity <= 80:
+    elif note.velocity <= 127:
         return 5
 
 def get_min_max_pitch(noteList):
