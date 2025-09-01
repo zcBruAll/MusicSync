@@ -9,6 +9,7 @@ class Alien():
         self.y = y
         self.dx = 0
         self.life_time = lifetime * 200
+        self.move_angle = 0
         
         #colors for each part
         self.body_color = body_color
@@ -41,24 +42,24 @@ class Alien():
     
     def update(self):
         self.life_time -= 1
+        self.move_angle += 0.01
     
     def draw(self, surface):
         for tri in self.top:
             for coords in tri:
-                coords[0] -= 3
-                coords[1] -= 1
+                coords[0] -= math.cos(self.move_angle) * 10
+                coords[1] -= math.sin(self.move_angle) * 10
             pygame.draw.polygon(surface, self.body_color, tri)
-            # pygame.draw.polygon(surface, (255, 255, 255), tri, 2)
 
         for tri in self.booster:
             for coords in tri:
-                coords[0] -= 3
-                coords[1] -= 1
+                coords[0] -= math.cos(self.move_angle) * 10
+                coords[1] -= math.sin(self.move_angle) * 10
             pygame.draw.polygon(surface, self.light_color, tri)
             
         for tri in self.bottom:
             for coords in tri:
-                coords[0] -= 3
-                coords[1] -= 1
+                coords[0] -= math.cos(self.move_angle) * 10
+                coords[1] -= math.sin(self.move_angle) * 10
             pygame.draw.polygon(surface, self.elipse_color, tri)
             pygame.draw.polygon(surface, (255,255,255), tri, 2)
