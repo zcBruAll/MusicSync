@@ -1,10 +1,10 @@
 # -------------------- Input/Output Configuration --------------------
-INPUT_FILE = "Sounds/SSB.mp3"  # File name and path of the input file
+INPUT_FILE = "Sounds/PinkPanther_Both.mp3"  # File name and path of the input file
 OUTPUT_GIF = "Output/cqt_analysis.gif"     # File name and path of the output gif  
 OUTPUT_PIANO_MIDI = "Output/detected_notes0.mid"      # File name and path of the output MIDI file
 OUTPUT_TRUMPET_MIDI = "Output/detected_notes73.mid"
 OUTPUT_BOTH_MIDI = "Output/detected_notesboth.mid"
-REF_MIDI = "Sounds/SSB.mid"
+REF_MIDI = "Sounds/PinkPanther.midi"
 
 # -------------------- Processing Mode Configuration --------------------
 ENABLE_GRAPH_ANIMATION = False  # Set to True for visual analysis, False for faster processing
@@ -12,85 +12,169 @@ ENABLE_GRAPH_ANIMATION = False  # Set to True for visual analysis, False for fas
 # -------------------- Animation Parameters --------------------
 FPS = 30  # Frames per second for animation (if enabled)
 
+# -------------------- Enhanced Harmonic Templates --------------------
+# Key insight: Piano harmonics decay rapidly, trumpet has formant-boosted mid harmonics
 HARMONIC_TEMPLATES = {
-    "piano":   [1.0, 0.8, 0.5, 0.3, 0.2],
-    "trumpet": [0.45, 0.5, 1.0, 0.6, 0.8],   # brighter tail than piano sustain
+    "piano":   [1.0, 0.8, 0.5, 0.3, 0.2, 0.12, 0.08, 0.05],  # Classic rapid decay
+    "trumpet": [0.7, 0.9, 1.0, 0.85, 0.7, 0.5, 0.3, 0.2],    # Formant-boosted 2nd-3rd harmonics
+    "brass":   [0.6, 0.8, 0.9, 0.75, 0.6, 0.4, 0.25, 0.15],  # General brass family
+    "generic": [1.0, 0.7, 0.5, 0.35, 0.25, 0.18, 0.12, 0.08] # Fallback template
 }
 
-# -------------------- CQT-Specific Parameters (Replaces FFT_WINDOWS_SECONDS) --------------------
-# CQT provides better frequency resolution for musical analysis
-# Each octave gets the same number of frequency bins, matching musical scales naturally
-BINS_PER_OCTAVE = 36      # 3 bins per semitone (36 bins per octave) for high resolution
-N_OCTAVES = 7             # Cover range from C1 to C8 (covers full musical range)
-CQT_FILTER_SCALE = 0.8    # Tighter filters for better frequency separation (0.5-1.0)
-CQT_SPARSITY = 0.01       # Remove very small values to reduce noise (0.01-0.1)
+# -------------------- CQT-Specific Parameters --------------------
+BINS_PER_OCTAVE = 36      # 3 bins per semitone for high resolution
+N_OCTAVES = 7             # Extended range but not excessive (C1 to C8)
+CQT_FILTER_SCALE = 0.8    # Tighter filters for better frequency separation
+CQT_SPARSITY = 0.01       # Remove very small values to reduce noise
 
-# -------------------- Frequency Range Configuration --------------------
-# Musical frequency range - optimized for typical musical content
-FREQ_MIN = 80    # Just below C2 (80 Hz ≈ low piano range)
-FREQ_MAX = 2000  # High enough for harmonics and overtones, low enough to avoid noise
+# -------------------- Balanced Frequency Range Configuration --------------------
+# Extended for trumpet but not so wide as to invite noise
+FREQ_MIN = 70     # Slightly lower for bass instruments
+FREQ_MAX = 2500   # Higher than piano-only (2000) but not excessive (was 4000)
 
 # -------------------- Visualization Parameters --------------------
-TOP_NOTES = 5  # Number of strongest peaks to show as red labels in animation
+TOP_NOTES = 5  # Back to reasonable number for clarity
 
-# -------------------- Enhanced Polyphonic Detection Parameters --------------------
+# -------------------- Conservative Core Detection Parameters --------------------
+# These are the main knobs that control sensitivity vs specificity
 
-# Peak Detection Settings
-MIN_PEAK_HEIGHT = 0.06      # Lower threshold for better sensitivity with CQT
-MIN_PEAK_DISTANCE = 2        # Bins between peaks (in CQT space, ~1 semitone)
-PEAK_PROMINENCE = 0.07       # Minimum prominence to distinguish real peaks from noise
+# Peak Detection Settings - Keep original conservative values mostly
+MIN_PEAK_HEIGHT = 0.06      # Original value - proven to work well
+MIN_PEAK_DISTANCE = 2        # Original value - prevents over-detection
+PEAK_PROMINENCE = 0.07       # Original value - distinguishes real peaks from noise
 
 # Harmonic Analysis Settings  
-MAX_HARMONICS = 10           # Maximum harmonics to analyze per fundamental
-HARMONIC_TOLERANCE = 0.05    # Tighter tolerance for cleaner harmonic detection (5%)
-HARMONIC_WEIGHT_DECAY = 0.85 # Weight decay for higher harmonics (85% retention per octave)
+MAX_HARMONICS = 10           # Reasonable limit - not too many
+HARMONIC_TOLERANCE = 0.05    # Original strict tolerance - prevents false matches
+HARMONIC_WEIGHT_DECAY = 0.85 # Moderate decay - works for both instruments
 
-# Note Tracking Settings
-SMOOTHING_TIME = 0.10        # Reduced gap tolerance for better temporal resolution
-MIN_NOTE_DURATION = 0.05     # Minimum note duration to avoid micro-notes
-DETECTION_THRESHOLD = 0.12   # Lower threshold for more sensitive detection
+# Note Tracking Settings - Keep proven values
+SMOOTHING_TIME = 0.12        # Original value worked well
+MIN_NOTE_DURATION = 0.08     # Slightly increased to filter out artifacts
+DETECTION_THRESHOLD = 0.12   # Original threshold - proven effective
 
-# Onset Detection Enhancement
-ONSET_WINDOW_MS = 50        # Window around onsets for enhanced detection
-ONSET_BOOST_FACTOR = 1.3     # Confidence boost factor near onsets
-
-# -------------------- MIDI Export Parameters --------------------
-MIDI_TEMPO_BPM = 120         # BPM for MIDI file export
-MIDI_VELOCITY_MIN = 64       # Minimum MIDI velocity (for weakest detected notes)
-MIDI_VELOCITY_MAX = 127      # Maximum MIDI velocity (for strongest detected notes)
-MIDI_PROGRAM = 0             # MIDI program number (0 = Acoustic Grand Piano)
+# Onset Detection Enhancement - Moderate improvements only
+ONSET_WINDOW_MS = 50        # Reasonable window size
+ONSET_BOOST_FACTOR = 1.2     # Moderate boost - not excessive
 
 # -------------------- Advanced Processing Options --------------------
-# These settings affect the quality vs speed trade-off
+# Keep conservative settings that were working
 
 # Audio Preprocessing
-ENABLE_SPECTRAL_GATING = True    # Apply noise gating between notes
-GATE_THRESHOLD_DB = -40          # Noise gate threshold in dB
-HARMONIC_PERCUSSIVE_SEPARATION = True  # Separate harmonic and percussive components
+ENABLE_SPECTRAL_GATING = True    # This helps with noise reduction
+GATE_THRESHOLD_DB = -40          # Original threshold
+HARMONIC_PERCUSSIVE_SEPARATION = True  # Helps separate instruments
 
-# CQT Computation
-CQT_HOP_RATIO = 0.25            # Hop length as fraction of frame size (affects time resolution)
-CQT_WINDOW_BETA = 8.0           # Window beta parameter (affects frequency resolution)
-
-# -------------------- Debug and Analysis Options --------------------
-VERBOSE_LOGGING = True              # Print detailed processing information
-SAVE_INTERMEDIATE_RESULTS = False   # Save CQT matrices and peak data for analysis
-PLOT_FREQUENCY_RESPONSE = False     # Generate frequency response plots
+# CQT Computation - Balanced parameters
+CQT_HOP_RATIO = 0.25            # Good time resolution without oversampling  
+CQT_WINDOW_BETA = 8.0           # Standard value
 
 # -------------------- Instrument Classification Parameters --------------------
-# Simple instrument classification settings (can be expanded for better accuracy)
-PIANO_HARMONIC_THRESHOLD = 4        # Minimum harmonics for piano classification
-PIANO_FREQUENCY_WEIGHT = 0.4        # Weight for frequency-based piano scoring
-PIANO_CONFIDENCE_THRESHOLD = 0.2    # Threshold for piano vs other classification
-PIANO_CENTROID_MAX = 800
-PIANO_ROLLOFF_MAX = 3000
-PIANO_FLATNESS_MAX = 0.2
+# Conservative thresholds that don't over-classify
+
+PIANO_CLASSIFICATION = {
+    'typical_centroid_range': (200, 800),   # Conservative range
+    'typical_rolloff_range': (800, 2500),   # Conservative range  
+    'typical_flatness_range': (0.05, 0.25), # Conservative range
+    'typical_freq_range': (80, 1800),       # Main piano range
+}
+
+TRUMPET_CLASSIFICATION = {
+    'typical_centroid_range': (400, 1200),  # Conservative trumpet range
+    'typical_rolloff_range': (1000, 2500),  # Conservative rolloff range
+    'typical_flatness_range': (0.15, 0.35), # Conservative flatness range  
+    'typical_freq_range': (150, 1000),      # Main trumpet fundamental range
+}
+
+# -------------------- MIDI Export Parameters --------------------
+MIDI_TEMPO_BPM = 120         # Standard tempo
+MIDI_VELOCITY_MIN = 64       # Conservative velocity range
+MIDI_VELOCITY_MAX = 127      # Full velocity range
+MIDI_PROGRAM = 0             # Acoustic Grand Piano
+
+# -------------------- Debug and Analysis Options --------------------
+VERBOSE_LOGGING = True              # Keep logging for debugging
+SAVE_INTERMEDIATE_RESULTS = False   # Don't save unless debugging
+PLOT_FREQUENCY_RESPONSE = False     # Don't plot unless debugging
 
 # -------------------- Performance Monitoring --------------------
-ENABLE_TIMING_ANALYSIS = True       # Track processing times for optimization
-MEMORY_USAGE_MONITORING = False     # Monitor memory usage during processing
+ENABLE_TIMING_ANALYSIS = True       # Track performance
+MEMORY_USAGE_MONITORING = False     # Only if needed
 
-# -------------------- Validation and Quality Control --------------------
-MAX_SIMULTANEOUS_NOTES = 8          # Maximum notes that can be active simultaneously
-MIN_FREQUENCY_SEPARATION = 1.05     # Minimum frequency ratio between simultaneous notes
-NOTE_STABILITY_THRESHOLD = 0.8      # Confidence threshold for note stability over time
+# -------------------- Quality Control Parameters --------------------
+# These are crucial for preventing false positives
+
+MAX_SIMULTANEOUS_NOTES = 6          # Reasonable limit - most music has ≤6 simultaneous notes
+MIN_FREQUENCY_SEPARATION = 1.03     # Prevent duplicate detections (3% minimum separation)
+NOTE_STABILITY_THRESHOLD = 0.75     # Require reasonable stability over time
+
+# Minimum evidence thresholds - these prevent weak detections from being accepted
+MIN_HARMONIC_EVIDENCE = 2           # Need at least 2 harmonics OR very strong single peak
+MIN_PATTERN_SCORE = 0.3             # Minimum pattern matching score to accept detection  
+MIN_ENERGY_RATIO = 0.15             # Minimum energy relative to strongest peak in frame
+
+# Quality gates - multiple criteria that must be met
+QUALITY_GATES = {
+    'min_detection_confidence': 0.1,    # Minimum overall confidence
+    'max_spurious_rate': 0.2,           # Maximum allowed spurious detection rate
+    'min_instrument_confidence': 0.2,   # Minimum confidence for instrument classification
+}
+
+# -------------------- Frequency-Specific Tuning --------------------
+# Different frequency ranges have different characteristics and need different handling
+
+# Low frequency range (70-250 Hz) - Piano bass, some trumpet fundamentals
+LOW_FREQ_PARAMS = {
+    'range': (70, 250),
+    'min_harmonics_required': 2,        # Require harmonic support in bass
+    'energy_threshold_multiplier': 1.2,  # Slightly higher threshold
+    'instrument_bias': 'piano'          # Slight piano bias in this range
+}
+
+# Mid frequency range (250-800 Hz) - Mixed piano/trumpet fundamentals  
+MID_FREQ_PARAMS = {
+    'range': (250, 800),
+    'min_harmonics_required': 1,        # Can accept single strong peaks
+    'energy_threshold_multiplier': 1.0,  # Standard threshold
+    'instrument_bias': None             # No bias - let pattern matching decide
+}
+
+# High frequency range (800+ Hz) - Trumpet fundamentals and harmonics
+HIGH_FREQ_PARAMS = {
+    'range': (800, 2500),  
+    'min_harmonics_required': 1,        # Accept single peaks (could be trumpet)
+    'energy_threshold_multiplier': 0.9,  # Slightly more sensitive
+    'instrument_bias': 'trumpet'        # Slight trumpet bias in this range
+}
+
+# -------------------- Harmonic Analysis Tuning --------------------
+# Controls how strictly we enforce harmonic relationships
+
+HARMONIC_ANALYSIS = {
+    'strict_fundamental_matching': True,     # Require good fundamental frequency match
+    'allow_missing_fundamental': True,       # But allow missing fundamental in limited cases
+    'max_missing_fundamental_harmonics': 3,  # Only check up to 3rd harmonic for missing fundamental
+    'harmonic_strength_threshold': 0.4,      # Minimum harmonic pattern strength
+    'pattern_match_weight': 0.3,             # Weight of pattern matching in final decision
+}
+
+# -------------------- Temporal Analysis Parameters --------------------
+# Controls how notes are tracked over time
+
+TEMPORAL_ANALYSIS = {
+    'onset_sensitivity_window': 0.05,       # 50ms window for onset-enhanced detection
+    'note_continuation_gap': 0.12,          # 120ms max gap before ending note  
+    'minimum_note_duration': 0.08,          # 80ms minimum duration
+    'stability_requirement': 0.75,          # Require 75% consistency over note duration
+}
+
+# -------------------- Error Prevention Parameters --------------------
+# These help catch and filter out common types of false positives
+
+ERROR_PREVENTION = {
+    'max_frequency_deviation': 0.05,        # Maximum frequency drift within a note (5%)
+    'min_peak_isolation': 0.15,             # Minimum relative isolation for accepting weak peaks
+    'duplicate_frequency_threshold': 0.03,   # Consider frequencies within 3% as duplicates
+    'noise_floor_multiple': 2.0,            # Peaks must be at least 2x noise floor
+    'consistency_requirement': 0.6,         # Require 60% consistency in detection across frames
+}

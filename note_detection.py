@@ -5,117 +5,155 @@ import math
 
 from config import *
 
-# -------------------- Enhanced CQT-Based Polyphonic Note Detection --------------------
+# -------------------- Conservative CQT-Based Note Detection with Trumpet Support --------------------
 
 def detect_notes_with_cqt_onsets(cqt_spectrum, cqt_frequencies, current_time, onset_times, max_notes=5):
     """
-    Enhanced note detection using CQT spectrum and onset information.
+    Balanced note detection that maintains conservative quality standards
+    while adding targeted trumpet detection capabilities.
     
-    CQT advantages:
-    - Logarithmic frequency spacing matches musical scales
-    - Better frequency resolution for bass notes
-    - Harmonic relationships are more regular in CQT space
-    
-    Args:
-        cqt_spectrum: CQT magnitude values for current time frame
-        cqt_frequencies: Frequency values corresponding to CQT bins
-        current_time: Current time in seconds
-        onset_times: Array of detected onset times
-        max_notes: Maximum number of simultaneous notes to detect
-        
-    Returns:
-        List of (frequency_hz, strength, note_name, is_piano) tuples
+    Key principle: Only be more permissive when we have strong evidence
+    that we're dealing with legitimate trumpet notes, not noise.
     """
-    # Check if we're near an onset (within 100ms) - this helps with timing accuracy
-    near_onset = any(abs(current_time - onset_time) < 0.1 for onset_time in onset_times)
     
-    # Adapt detection sensitivity based on onset proximity
-    # Near onsets, we expect new notes to start, so we lower thresholds
-    if near_onset:
-        adjusted_min_height = MIN_PEAK_HEIGHT * 0.6  # More sensitive near onsets
-        adjusted_threshold = DETECTION_THRESHOLD * 0.7
-        onset_boost = 1.3  # Boost confidence scores near onsets
+    # Check if we're near an onset - but be more selective about what constitutes "near"
+    near_onset = any(abs(current_time - onset_time) < 0.05 for onset_time in onset_times)
+    very_near_onset = any(abs(current_time - onset_time) < 0.02 for onset_time in onset_times)
+    
+    # Use the original conservative parameters as baseline
+    base_min_height = MIN_PEAK_HEIGHT
+    base_threshold = DETECTION_THRESHOLD
+    
+    # Only lower thresholds significantly if we're very close to an onset
+    if very_near_onset:
+        adjusted_min_height = base_min_height * 0.8  # Only 20% reduction, not 40%
+        adjusted_threshold = base_threshold * 0.85    # Only 15% reduction, not 30%
+        onset_boost = 1.2  # Reduced from 1.4
+    elif near_onset:
+        adjusted_min_height = base_min_height * 0.9
+        adjusted_threshold = base_threshold * 0.95
+        onset_boost = 1.1
     else:
-        adjusted_min_height = MIN_PEAK_HEIGHT
-        adjusted_threshold = DETECTION_THRESHOLD
+        adjusted_min_height = base_min_height
+        adjusted_threshold = base_threshold
         onset_boost = 1.0
     
-    # Find spectral peaks in CQT domain - this is more reliable than STFT for musical content
-    peak_freqs, peak_mags, peak_indices = find_cqt_peaks(
-        cqt_spectrum, cqt_frequencies, 
-        min_height=adjusted_min_height
+    # Find peaks with conservative parameters
+    peak_freqs, peak_mags, peak_indices = find_cqt_peaks_conservative(
+        cqt_spectrum, cqt_frequencies, min_height=adjusted_min_height
     )
     
     if len(peak_freqs) == 0:
         return []
     
-    # Group peaks into fundamentals using CQT-optimized harmonic detection
-    # CQT makes harmonic detection much more reliable because harmonics appear
-    # at regular intervals in the logarithmic frequency space
-    fundamentals = group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies)
+    # Group harmonics with stricter quality requirements
+    fundamentals = group_cqt_harmonics_conservative(peak_freqs, peak_mags, cqt_frequencies)
     
-    centroid, rolloff, flatness = compute_timbre_feature(cqt_spectrum, cqt_frequencies)
+    # Only proceed with high-quality fundamental candidates
+    high_quality_fundamentals = []
+    for fundamental_data in fundamentals:
+        f0, energy, num_harmonics, harmonic_strength, matched_instrument, pattern_score = fundamental_data
+        
+        # Strict quality gate - must meet multiple criteria
+        passes_quality_check = evaluate_detection_quality(
+            f0, energy, num_harmonics, harmonic_strength, pattern_score, adjusted_threshold
+        )
+        
+        if passes_quality_check:
+            high_quality_fundamentals.append(fundamental_data)
     
-    # Convert to musical notes with enhanced scoring
-    notes = []
-    for f0, energy, num_harmonics, harmonic_strength, instrument, pattern_score in fundamentals[:max_notes]:
-        if FREQ_MIN <= f0 <= FREQ_MAX and energy >= adjusted_threshold:
-            try:                
-                # Enhanced confidence scoring considers:
-                # 1. Base energy from peak detection
-                # 2. Number of supporting harmonics (more = better)
-                # 3. Strength of harmonic pattern
-                # 4. Onset proximity boost
-                confidence = energy * (1 + 0.15 * (num_harmonics - 1)) * harmonic_strength * onset_boost
-                
-                # Determine instrument based on harmonic pattern matching
-                is_piano = classify_instrument(
-                    f0,
-                    confidence,
-                    num_harmonics,
-                    pattern_score,
-                    centroid,
-                    rolloff,
-                    flatness,
-                )
-                
-                # Convert frequency to musical note
-                midi = librosa.hz_to_midi(f0)
-                note_name = librosa.midi_to_note(midi, octave=True)
-                
-                notes.append((f0, confidence, note_name, is_piano))
-            except Exception as e:
-                # Skip notes that can't be converted (e.g., too high/low frequency)
-                continue
+    # Convert only high-quality detections to notes
+    detected_notes = []
+    centroid, rolloff, flatness = compute_timbre_features_conservative(cqt_spectrum, cqt_frequencies)
     
-    return notes
+    for f0, energy, num_harmonics, harmonic_strength, matched_instrument, pattern_score in high_quality_fundamentals:
+        try:
+            # Conservative confidence calculation - no excessive bonuses
+            confidence = calculate_conservative_confidence(
+                energy, num_harmonics, harmonic_strength, pattern_score, onset_boost
+            )
+            
+            # Conservative instrument classification
+            is_piano = classify_instrument_conservative(
+                f0, confidence, num_harmonics, pattern_score,
+                centroid, rolloff, flatness, matched_instrument
+            )
+            
+            # Convert to musical note
+            midi = librosa.hz_to_midi(f0)
+            note_name = librosa.midi_to_note(midi, octave=True)
+            
+            detected_notes.append((f0, confidence, note_name, is_piano))
+            
+        except Exception as e:
+            continue
+    
+    # Aggressive duplicate removal - be very strict about what constitutes different notes
+    detected_notes = remove_duplicate_notes_strict(detected_notes)
+    
+    # Sort by confidence and limit to reasonable number
+    detected_notes.sort(key=lambda x: x[1], reverse=True)
+    return detected_notes[:min(max_notes, 4)]  # Cap at 4 simultaneous notes max
 
-def find_cqt_peaks(cqt_spectrum, cqt_frequencies, min_height=MIN_PEAK_HEIGHT):
+def evaluate_detection_quality(f0, energy, num_harmonics, harmonic_strength, pattern_score, threshold):
     """
-    Find significant peaks in CQT spectrum with musical-aware parameters.
+    Strict quality evaluation - multiple criteria must be met for a detection to be accepted.
     
-    CQT peak detection is different from STFT because:
-    - CQT bins are logarithmically spaced
-    - Musical notes have natural relationships in log-frequency space
-    - We can use musical knowledge to set better distance parameters
-    
-    Returns:
-        peak_freqs: Frequencies of detected peaks
-        peak_mags: Magnitudes of detected peaks  
-        peak_indices: Indices in CQT spectrum
+    This is the key function that prevents false positives while allowing trumpet notes.
     """
-    # Calculate minimum distance in bins for peak separation
-    # We want to separate peaks by at least 1 semitone to avoid double-detection
-    # In CQT with bins_per_octave=36, each semitone = 3 bins
-    min_distance_bins = max(2, int(36 / 12))  # About 1 semitone
     
-    # Find peaks with adaptive parameters
+    # Rule 1: Must meet energy threshold
+    if energy < threshold:
+        return False
+    
+    # Rule 2: Must have either strong harmonics OR very high energy
+    if num_harmonics < 2 and energy < threshold * 2.0:
+        return False
+    
+    # Rule 3: Harmonic strength must be reasonable
+    if harmonic_strength < 0.4:
+        return False
+    
+    # Rule 4: Must be in reasonable musical frequency range
+    if f0 < 70 or f0 > 2000:  # Slightly extended for trumpet but not too much
+        return False
+    
+    # Rule 5: Pattern score should indicate some instrument-like behavior
+    if pattern_score < 0.3:
+        return False
+    
+    # Rule 6: Very high frequency detections need extra evidence
+    if f0 > 1500 and (num_harmonics < 3 or energy < threshold * 1.5):
+        return False
+    
+    # Rule 7: Very low frequency detections need strong harmonic support  
+    if f0 < 100 and (num_harmonics < 3 or harmonic_strength < 0.6):
+        return False
+    
+    return True
+
+def find_cqt_peaks_conservative(cqt_spectrum, cqt_frequencies, min_height=MIN_PEAK_HEIGHT):
+    """
+    Conservative peak finding that maintains original quality standards
+    while being slightly more aware of trumpet characteristics.
+    """
+    if len(cqt_spectrum) == 0:
+        return [], [], []
+    
+    # Use original conservative distance parameters mostly
+    min_distance_bins = max(2, int(36 / 12))  # 1 semitone minimum
+    
+    # Conservative prominence - higher than my previous version
+    prominence_threshold = max(PEAK_PROMINENCE, min_height * 1.5)
+    
+    # Find peaks with strict parameters
     peaks, properties = find_peaks(
         cqt_spectrum, 
         height=min_height, 
         distance=min_distance_bins,
-        prominence=0.01,  # Relative prominence to distinguish real peaks from noise
-        width=1           # Minimum width in bins
+        prominence=prominence_threshold,
+        width=1.0,           # Require minimum width
+        rel_height=0.8       # Require good peak shape
     )
     
     if len(peaks) == 0:
@@ -124,24 +162,425 @@ def find_cqt_peaks(cqt_spectrum, cqt_frequencies, min_height=MIN_PEAK_HEIGHT):
     peak_freqs = cqt_frequencies[peaks]
     peak_mags = cqt_spectrum[peaks]
     
-    # Sort by magnitude (strongest first) for better fundamental detection
-    sort_idx = np.argsort(peak_mags)[::-1]
-    return peak_freqs[sort_idx], peak_mags[sort_idx], peaks[sort_idx]
-
-def compute_timbre_feature(cqt_spectrum, cqt_frequencies):
-    """
-    Compute basic features used for timbre-based instrument classification.
+    # Strict filtering - remove peaks that are too weak relative to strongest
+    if len(peak_mags) > 0:
+        max_mag = np.max(peak_mags)
+        # Increased threshold from 0.1 to 0.15 - be more selective
+        strong_enough = peak_mags >= max_mag * 0.15
+        
+        peak_freqs = peak_freqs[strong_enough]
+        peak_mags = peak_mags[strong_enough]
+        peaks = peaks[strong_enough]
     
-    Returns:
-        centroid: Spectral centroid in Hz
-        rolloff: Spectral roll-off frequency (85% energy) in Hz
-        flatness: Spectral flatness mesure (0=tone, 1=noise)
+    # Additional filtering: remove isolated weak peaks
+    filtered_peaks = []
+    filtered_mags = []
+    filtered_indices = []
+    
+    for i, (freq, mag, idx) in enumerate(zip(peak_freqs, peak_mags, peaks)):
+        # Check if this peak has nearby support (other peaks within reasonable distance)
+        has_support = False
+        for j, other_freq in enumerate(peak_freqs):
+            if i != j:
+                freq_ratio = max(freq, other_freq) / min(freq, other_freq)
+                # Support from harmonically related frequencies or nearby peaks
+                if (freq_ratio <= 4.0 and freq_ratio >= 1.8) or abs(freq - other_freq) < freq * 0.1:
+                    has_support = True
+                    break
+        
+        # Accept peak if it has support OR is very strong
+        if has_support or mag >= max_mag * 0.4:
+            filtered_peaks.append(freq)
+            filtered_mags.append(mag)
+            filtered_indices.append(idx)
+    
+    if len(filtered_peaks) > 0:
+        # Sort by magnitude (strongest first)
+        sort_idx = np.argsort(filtered_mags)[::-1]
+        return (np.array(filtered_peaks)[sort_idx], 
+                np.array(filtered_mags)[sort_idx], 
+                np.array(filtered_indices)[sort_idx])
+    else:
+        return [], [], []
+
+def group_cqt_harmonics_conservative(peak_freqs, peak_mags, cqt_frequencies):
+    """
+    Conservative harmonic grouping that maintains quality while adding trumpet support.
+    
+    Key changes from original:
+    1. Keep strict quality requirements
+    2. Add limited missing fundamental detection only for strong evidence
+    3. Better duplicate prevention
+    """
+    if len(peak_freqs) == 0:
+        return []
+    
+    fundamentals = []
+    used_peaks = set()
+    
+    # Sort peaks by magnitude (strongest first)
+    peak_order = np.argsort(peak_mags)[::-1]
+    
+    # First pass: standard fundamental detection with original quality standards
+    for i in peak_order:
+        if i in used_peaks:
+            continue
+            
+        f0_candidate = peak_freqs[i]
+        f0_magnitude = peak_mags[i]
+        
+        # Find harmonics using conservative approach
+        harmonics = [(f0_candidate, f0_magnitude, 1)]  # Start with fundamental
+        harmonic_indices = {i}
+        
+        # Look for harmonics with strict matching
+        for harmonic_num in range(2, MAX_HARMONICS + 1):
+            expected_freq = f0_candidate * harmonic_num
+            
+            if expected_freq > FREQ_MAX:
+                break
+                
+            # Find closest peak with strict tolerance
+            best_match_idx = None
+            best_match_error = float('inf')
+            
+            for j in peak_order:
+                if j in used_peaks or j == i:
+                    continue
+                    
+                freq_error = abs(peak_freqs[j] - expected_freq) / expected_freq
+                
+                # Use original strict tolerance
+                if freq_error < HARMONIC_TOLERANCE and freq_error < best_match_error:
+                    best_match_error = freq_error
+                    best_match_idx = j
+            
+            if best_match_idx is not None:
+                harmonics.append((peak_freqs[best_match_idx], peak_mags[best_match_idx], harmonic_num))
+                harmonic_indices.add(best_match_idx)
+        
+        # Conservative evaluation - require good evidence
+        num_harmonics = len(harmonics)
+        harmonic_strength = calculate_harmonic_strength_conservative(harmonics)
+        matched_instrument, pattern_score = match_harmonic_pattern_conservative(harmonics)
+        
+        # Strict acceptance criteria - must have multiple supporting factors
+        accept_fundamental = False
+        
+        if num_harmonics >= 3 and harmonic_strength >= 0.6:
+            accept_fundamental = True
+        elif num_harmonics >= 2 and harmonic_strength >= 0.7 and f0_magnitude > 0.2:
+            accept_fundamental = True  
+        elif num_harmonics == 1 and f0_magnitude > 0.4 and pattern_score > 0.6:
+            accept_fundamental = True  # Very strong single peak with good pattern
+        
+        if accept_fundamental:
+            total_energy = sum(mag * (HARMONIC_WEIGHT_DECAY ** (harm_num - 1)) 
+                             for freq, mag, harm_num in harmonics)
+            
+            fundamentals.append((f0_candidate, total_energy, num_harmonics,
+                               harmonic_strength, matched_instrument, pattern_score))
+            used_peaks.update(harmonic_indices)
+    
+    # Second pass: VERY LIMITED missing fundamental detection
+    # Only for cases with very strong evidence
+    remaining_peaks = [i for i in peak_order if i not in used_peaks]
+    
+    if len(remaining_peaks) >= 2:  # Need at least 2 unused peaks for missing fundamental
+        for i in remaining_peaks[:3]:  # Only check strongest 3 unused peaks
+            if i in used_peaks:
+                continue
+                
+            candidate_freq = peak_freqs[i]
+            candidate_mag = peak_mags[i]
+            
+            # Only consider missing fundamental if this peak is quite strong
+            if candidate_mag < np.max(peak_mags) * 0.3:
+                continue
+            
+            # Only check if could be 2nd or 3rd harmonic (not higher)
+            for harmonic_num in [2, 3]:
+                f0_est = candidate_freq / harmonic_num
+                
+                if not (80 <= f0_est <= 1000):  # Conservative frequency range
+                    continue
+                
+                # Look for supporting evidence with strict requirements
+                supporting_harmonics = [(candidate_freq, candidate_mag, harmonic_num)]
+                
+                for other_harm_num in [2, 3, 4]:
+                    if other_harm_num == harmonic_num:
+                        continue
+                        
+                    expected_other_freq = f0_est * other_harm_num
+                    
+                    for j in remaining_peaks:
+                        if j == i or j in used_peaks:
+                            continue
+                            
+                        if abs(peak_freqs[j] - expected_other_freq) < expected_other_freq * 0.04:  # Strict tolerance
+                            supporting_harmonics.append((peak_freqs[j], peak_mags[j], other_harm_num))
+                            break
+                
+                # Need at least 2 supporting harmonics for missing fundamental
+                if len(supporting_harmonics) >= 2:
+                    harmonic_strength = calculate_harmonic_strength_conservative(supporting_harmonics)
+                    matched_instrument, pattern_score = match_harmonic_pattern_conservative(supporting_harmonics)
+                    
+                    # Very strict criteria for missing fundamental
+                    if (harmonic_strength >= 0.7 and pattern_score >= 0.6 and 
+                        sum(mag for freq, mag, harm_num in supporting_harmonics) > 0.3):
+                        
+                        total_energy = sum(mag * (HARMONIC_WEIGHT_DECAY ** (harm_num - 1)) 
+                                         for freq, mag, harm_num in supporting_harmonics)
+                        
+                        fundamentals.append((f0_est, total_energy, len(supporting_harmonics),
+                                           harmonic_strength, matched_instrument, pattern_score))
+                        
+                        # Mark supporting peaks as used
+                        for freq, mag, harm_num in supporting_harmonics:
+                            for k, pf in enumerate(peak_freqs):
+                                if abs(pf - freq) < 0.1:
+                                    used_peaks.add(k)
+                                    break
+                        break
+    
+    # Sort by total energy and return
+    fundamentals.sort(key=lambda x: x[1], reverse=True)
+    return fundamentals[:6]  # Limit to max 6 fundamental candidates
+
+def calculate_conservative_confidence(energy, num_harmonics, harmonic_strength, pattern_score, onset_boost):
+    """
+    Conservative confidence calculation that doesn't over-boost weak detections.
+    """
+    # Base confidence from energy (primary factor)
+    base_confidence = energy
+    
+    # Conservative harmonic bonus - not too generous
+    harmonic_bonus = 1 + 0.08 * max(0, num_harmonics - 1)  # Reduced from 0.12
+    
+    # Pattern quality bonus - only reward good patterns significantly  
+    if pattern_score > 0.7:
+        pattern_bonus = 1.15
+    elif pattern_score > 0.5:
+        pattern_bonus = 1.05
+    else:
+        pattern_bonus = 1.0
+    
+    # Harmonic strength bonus - conservative
+    if harmonic_strength > 0.7:
+        strength_bonus = 1.1
+    else:
+        strength_bonus = 1.0
+    
+    # Combine factors conservatively
+    confidence = base_confidence * harmonic_bonus * pattern_bonus * strength_bonus * onset_boost
+    
+    return confidence
+
+def classify_instrument_conservative(frequency, confidence, num_harmonics, pattern_score, 
+                                   centroid, rolloff, flatness, matched_instrument):
+    """
+    Conservative instrument classification that maintains original decision boundaries
+    while incorporating trumpet pattern recognition.
+    """
+    
+    # Start with pattern matching results - but don't over-weight them
+    if matched_instrument == "piano":
+        piano_score = 0.2  # Reduced from 0.4
+    elif matched_instrument == "trumpet" or matched_instrument == "brass":
+        piano_score = -0.1  # Less negative than before
+    else:
+        piano_score = 0.0
+    
+    # Frequency range analysis - keep original logic mostly intact
+    if 80 <= frequency <= 300:
+        piano_score += 0.3  # Piano bass range
+    elif 300 <= frequency <= 600:
+        piano_score += 0.1  # Mixed range, slight piano preference  
+    elif 600 <= frequency <= 1200:
+        piano_score -= 0.1  # Trumpet range
+    elif frequency > 1200:
+        piano_score -= 0.2  # High frequency
+    
+    # Harmonic structure - keep original conservative logic
+    if num_harmonics <= 3:
+        piano_score += 0.15  # Piano harmonics decay quickly
+    elif num_harmonics >= 5:
+        piano_score -= 0.15  # Trumpet has richer harmonics
+    
+    # Pattern score - only give bonus for very good matches
+    if pattern_score > 0.8:
+        if matched_instrument == "piano":
+            piano_score += 0.2
+        elif matched_instrument in ["trumpet", "brass"]:
+            piano_score -= 0.2
+    
+    # Spectral features - keep conservative thresholds
+    if centroid < 600:  # Conservative piano centroid threshold
+        piano_score += 0.1
+    elif centroid > 1000:  # Clear trumpet indication
+        piano_score -= 0.15
+    
+    if rolloff < 2000:
+        piano_score += 0.1
+    elif rolloff > 3000:
+        piano_score -= 0.1
+    
+    # Conservative decision threshold - slightly favor piano as before
+    return piano_score > 0.2  # Increased from 0.15 to be more conservative
+
+def remove_duplicate_notes_strict(detected_notes):
+    """
+    Very strict duplicate removal - err on the side of removing too many rather than too few.
+    """
+    if not detected_notes:
+        return []
+    
+    # Group by note name (including octave)
+    note_groups = {}
+    for freq, conf, name, is_piano in detected_notes:
+        if name not in note_groups:
+            note_groups[name] = []
+        note_groups[name].append((freq, conf, name, is_piano))
+    
+    unique_notes = []
+    for name, detections in note_groups.items():
+        # If multiple detections of same note, only keep the strongest
+        best_detection = max(detections, key=lambda x: x[1])
+        unique_notes.append(best_detection)
+    
+    # Additional step: remove notes that are very close in frequency
+    final_notes = []
+    unique_notes.sort(key=lambda x: x[0])  # Sort by frequency
+    
+    for i, (freq, conf, name, is_piano) in enumerate(unique_notes):
+        # Check if this frequency is too close to any already accepted frequency
+        too_close = False
+        for prev_freq, prev_conf, prev_name, prev_is_piano in final_notes:
+            freq_ratio = max(freq, prev_freq) / min(freq, prev_freq)
+            if freq_ratio < 1.03:  # Less than 3% frequency difference
+                too_close = True
+                break
+        
+        if not too_close:
+            final_notes.append((freq, conf, name, is_piano))
+    
+    return final_notes
+
+def calculate_harmonic_strength_conservative(harmonics):
+    """
+    Conservative harmonic strength calculation - maintain original standards.
+    """
+    if len(harmonics) < 2:
+        return 0.5
+    
+    # Sort by harmonic number
+    harmonics = sorted(harmonics, key=lambda x: x[2])
+    
+    strength_scores = []
+    
+    for i in range(len(harmonics) - 1):
+        curr_freq, curr_amp, curr_num = harmonics[i]
+        next_freq, next_amp, next_num = harmonics[i + 1]
+        
+        # Expected frequency ratio
+        expected_freq_ratio = next_num / curr_num
+        actual_freq_ratio = next_freq / curr_freq
+        
+        # Strict frequency accuracy requirement
+        freq_accuracy = max(0, 1 - abs(actual_freq_ratio - expected_freq_ratio) / expected_freq_ratio)
+        strength_scores.append(freq_accuracy)
+        
+        # Conservative amplitude progression - expect some decay
+        if curr_amp > 0:
+            amp_ratio = next_amp / curr_amp
+            
+            # Allow some flexibility for trumpet, but not too much
+            if 0.4 <= amp_ratio <= 1.2:  # Reasonable range
+                amp_score = 1.0
+            else:
+                amp_score = max(0, 1 - abs(amp_ratio - 0.7) / 0.7)
+            
+            strength_scores.append(amp_score)
+    
+    return np.mean(strength_scores) if strength_scores else 0.5
+
+def match_harmonic_pattern_conservative(harmonics):
+    """
+    Conservative pattern matching that maintains quality standards.
+    """
+    if not harmonics or len(harmonics) == 0:
+        return "generic", 0.0
+
+    # Sort and normalize
+    harmonics = sorted(harmonics, key=lambda x: x[2])
+    max_amplitude = max(h[1] for h in harmonics)
+    if max_amplitude <= 0:
+        return "generic", 0.0
+    
+    detected_ratios = [h[1] / max_amplitude for h in harmonics]
+    harmonic_numbers = [h[2] for h in harmonics]
+    
+    best_instrument = "generic"
+    best_score = 0.0
+    
+    # Compare against templates
+    for instrument_name, template_ratios in HARMONIC_TEMPLATES.items():
+        if len(template_ratios) == 0:
+            continue
+        
+        # Calculate match score with conservative standards
+        score = calculate_pattern_match_score_conservative(detected_ratios, harmonic_numbers, template_ratios)
+        
+        if score > best_score:
+            best_score = score
+            best_instrument = instrument_name
+    
+    return best_instrument, best_score
+
+def calculate_pattern_match_score_conservative(detected_ratios, harmonic_numbers, template_ratios):
+    """
+    Conservative pattern matching that requires good correspondence.
+    """
+    if len(detected_ratios) == 0 or len(template_ratios) == 0:
+        return 0.0
+    
+    total_error = 0.0
+    comparisons = 0
+    
+    # Compare each detected harmonic against template
+    for i, (ratio, harm_num) in enumerate(zip(detected_ratios, harmonic_numbers)):
+        template_idx = harm_num - 1
+        
+        if template_idx < len(template_ratios):
+            expected_ratio = template_ratios[template_idx]
+            error = abs(ratio - expected_ratio)
+            total_error += error
+            comparisons += 1
+    
+    if comparisons == 0:
+        return 0.0
+    
+    # Convert to match score - be more demanding
+    avg_error = total_error / comparisons
+    match_score = max(0.0, 1.0 - avg_error * 1.2)  # Penalty factor increased
+    
+    # Smaller completeness bonus
+    completeness_bonus = min(comparisons / len(template_ratios), 1.0) * 0.05  # Reduced from 0.1
+    
+    return min(1.0, match_score + completeness_bonus)
+
+def compute_timbre_features_conservative(cqt_spectrum, cqt_frequencies):
+    """
+    Conservative timbre feature computation - maintain original approach.
     """
     magnitude = np.asarray(cqt_spectrum).astype(float)
     if magnitude.size == 0 or np.sum(magnitude) == 0:
         return 0.0, 0.0, 0.0
     
-    centroid = np.sum(cqt_frequencies * magnitude) / np.sum(magnitude)
+    total_energy = np.sum(magnitude)
+    centroid = np.sum(cqt_frequencies * magnitude) / total_energy
     
     cumulative_energy = np.cumsum(magnitude)
     rolloff_idx = np.searchsorted(cumulative_energy, 0.85 * cumulative_energy[-1])
@@ -151,266 +590,44 @@ def compute_timbre_feature(cqt_spectrum, cqt_frequencies):
     
     return centroid, rolloff, flatness
 
-def classify_instrument(frequency, confidence, num_harmonics, pattern_score, centroid, rolloff, flatness):
-    """
-    Instrument classification using sinmple spectral heuristics.
-    
-    Args:
-        frequency: Fundamental frequency of the note
-        confidence: Detection confidence
-        num_harmonics: Number of detected harmonics
-        centroid: Spectral centroid (Hz)
-        rolloff: Spectral roll-off frequency (Hz)
-        flatness: Spectral flatness measure
-        
-    Returns:
-        Boolean: True if classified as piano, False for trumpet
-    """
-    
-    piano_score = 0.0
-    
-    # Frequency range scoring
-    if 80 <= frequency <= 1000:
-        piano_score += 0.3
-    elif frequency < 80 or frequency > 2000:
-        piano_score -= 0.2
-        
-    if num_harmonics < 4:
-        piano_score += 0.2
-    elif num_harmonics >= 5:
-        piano_score -= 0.2
-        
-    if pattern_score > 0.75:
-        piano_score += 0.2
-    else:
-        piano_score -= 0.2
-        
-    if confidence > 0.8:
-        piano_score += 0.1
-    else:
-        piano_score -= 0.1
-        
-    if centroid < PIANO_CENTROID_MAX:
-        piano_score += 0.2
-    else:
-        piano_score -= 0.2
-        
-    if rolloff < PIANO_ROLLOFF_MAX:
-        piano_score += 0.1
-    else:
-        piano_score -= 0.1
-
-    if flatness < PIANO_FLATNESS_MAX:
-        piano_score += 0.1
-    else:
-        piano_score -= 0.1
-        
-    return piano_score > 0.35
-
-def group_cqt_harmonics(peak_freqs, peak_mags, cqt_frequencies, max_harmonics=MAX_HARMONICS):
-    """
-    Group CQT peaks into fundamental frequencies and their harmonics.
-    
-    This is where CQT really shines! In CQT space:
-    - Harmonics of a fundamental appear at regular intervals
-    - The logarithmic spacing makes harmonic ratios easier to detect
-    - We can use musical theory more directly
-    
-    Args:
-        peak_freqs: Array of peak frequencies
-        peak_mags: Array of peak magnitudes
-        cqt_frequencies: Full CQT frequency array
-        max_harmonics: Maximum harmonics to consider
-        
-    Returns:
-        List of (fundamental_freq, total_energy, num_harmonics, 
-                harmonic_strength, instrument, pattern_score) tuples
-    """
-    if len(peak_freqs) == 0:
-        return []
-    
-    fundamentals = []
-    used_peaks = set()
-    
-    # Sort peaks by magnitude (strongest first) - strongest peaks are likely fundamentals
-    peak_order = np.argsort(peak_mags)[::-1]
-    
-    for i in peak_order:
-        if i in used_peaks:
-            continue
-            
-        f0_candidate = peak_freqs[i]
-        f0_magnitude = peak_mags[i]
-        
-        # Find harmonics of this candidate using CQT-optimized detection
-        harmonics = [(f0_candidate, f0_magnitude, 1)]  # (freq, mag, harmonic_number)
-        harmonic_indices = {i}
-        
-        # Look for harmonics: 2f0, 3f0, 4f0, etc.
-        for harmonic_num in range(2, max_harmonics + 1):
-            expected_freq = f0_candidate * harmonic_num
-            
-            # Find the closest peak to expected harmonic frequency
-            closest_peak_idx = None
-            min_distance = float('inf')
-            
-            for j in peak_order:
-                if j in used_peaks or j == i:
-                    continue
-                
-                # Check if this peak could be the harmonic we're looking for
-                freq_ratio = peak_freqs[j] / f0_candidate
-                expected_ratio = harmonic_num
-                
-                # In CQT space, we can be more precise about harmonic relationships
-                relative_error = abs(freq_ratio - expected_ratio) / expected_ratio
-                
-                if relative_error < HARMONIC_TOLERANCE:
-                    distance = abs(peak_freqs[j] - expected_freq)
-                    if distance < min_distance:
-                        min_distance = distance
-                        closest_peak_idx = j
-            
-            # If we found a good harmonic match, add it
-            if closest_peak_idx is not None:
-                harmonics.append((peak_freqs[closest_peak_idx], peak_mags[closest_peak_idx], harmonic_num))
-                harmonic_indices.add(closest_peak_idx)
-        
-        # Evaluate the quality of this fundamental candidate
-        num_harmonics = len(harmonics)
-        
-        # Calculate harmonic strength and match harmonic pattern
-        harmonic_strength = calculate_harmonic_strength(harmonics)
-        
-        instrument, pattern_score = match_harmonic_pattern(harmonics)
-        
-        # Only consider as fundamental if:
-        # 1. It has supporting harmonics OR is very strong
-        # 2. The harmonic pattern is reasonably strong
-        if (num_harmonics >= 2 or f0_magnitude > 0.4) and harmonic_strength > 0.5:
-            # Calculate total energy (sum of harmonic magnitudes with decay)
-            total_energy = 0
-            for freq, mag, harm_num in harmonics:
-                # Higher harmonics contribute less to total energy (natural decay)
-                decay_factor = HARMONIC_WEIGHT_DECAY ** (harm_num - 1)
-                total_energy += mag * decay_factor
-            
-            fundamentals.append((f0_candidate, total_energy, num_harmonics,
-                                 harmonic_strength, instrument, pattern_score))
-            used_peaks.update(harmonic_indices)
-    
-    # Sort fundamentals by total energy (strongest first)
-    fundamentals.sort(key=lambda x: x[1], reverse=True)
-    return fundamentals
-
-def match_harmonic_pattern(harmonics, patterns=HARMONIC_TEMPLATES):
-    """Compare detected harmonics to known instrument patterns.
-
-    Args:
-        harmonics: List of (freq, mag, harmonic_number) tuples
-        patterns: Dict mapping instrument name to expected amplitude ratios
-
-    Returns:
-        Tuple of (best_instrument, match_score)
-    """
-    if not harmonics:
-        return None, 0.0
-
-    # Ensure harmonics are ordered and compute amplitude ratios
-    harmonics = sorted(harmonics, key=lambda x: x[2])
-    fundamental_mag = harmonics[0][1] if harmonics[0][1] > 0 else 1e-6
-    ratios = [h[1] / fundamental_mag for h in harmonics]
-
-    best_name = None
-    best_score = -np.inf
-
-    for name, pattern in patterns.items():
-        usable = min(len(pattern), len(ratios))
-        if usable == 0:
-            continue
-        error = np.mean([abs(ratios[i] - pattern[i]) for i in range(usable)])
-        score = 1 - error  # Higher is better
-        if score > best_score:
-            best_score = score
-            best_name = name
-
-    return best_name, max(0.0, best_score)
-
-def calculate_harmonic_strength(harmonics):
-    """
-    Calculate how well the harmonics follow the expected amplitude decay pattern.
-    
-    In natural instruments, harmonics typically decay in amplitude as frequency increases.
-    This function measures how well the detected harmonics follow this pattern.
-    
-    Returns:
-        Strength score between 0 and 1 (1 = perfect harmonic decay pattern)
-    """
-    if len(harmonics) < 2:
-        return 0.5  # Neutral score for single peaks
-    
-    # Sort harmonics by harmonic number
-    harmonics.sort(key=lambda x: x[2])  # Sort by harmonic number
-    
-    # Calculate expected vs actual amplitude ratios
-    strength_scores = []
-    
-    for i in range(1, len(harmonics)):
-        prev_freq, prev_mag, prev_num = harmonics[i-1]
-        curr_freq, curr_mag, curr_num = harmonics[i]
-        
-        # Expected decay based on harmonic number
-        expected_ratio = (prev_num / curr_num) ** 0.8  # Slightly less than 1/n decay
-        actual_ratio = curr_mag / prev_mag if prev_mag > 0 else 0
-        
-        # Score how close actual ratio is to expected
-        if expected_ratio > 0:
-            ratio_error = abs(actual_ratio - expected_ratio) / expected_ratio
-            strength_score = max(0, 1 - ratio_error)
-            strength_scores.append(strength_score)
-    
-    return np.mean(strength_scores) if strength_scores else 0.5
-
 def top_note_labels_from_cqt(cqt_spectrum, cqt_frequencies, top_k=TOP_NOTES):
     """
-    Extract top K strongest peaks from CQT spectrum for visualization.
-    
-    This function is used for the red labels in the animation that show
-    the strongest spectral components at each time frame.
-    
-    Returns:
-        List of (frequency, note_name, magnitude) tuples
+    Conservative top note labeling for visualization.
     """
-    peak_freqs, peak_mags, _ = find_cqt_peaks(cqt_spectrum, cqt_frequencies)
+    peak_freqs, peak_mags, _ = find_cqt_peaks_conservative(cqt_spectrum, cqt_frequencies)
     
     if len(peak_freqs) == 0:
         return []
     
     labels = []
     seen_notes = set()
+    used_freqs = set()
     
-    # Process strongest peaks first, avoiding duplicate note names
-    for freq, mag in zip(peak_freqs[:top_k*2], peak_mags[:top_k*2]):
+    # Process only strongest peaks
+    for freq, mag in zip(peak_freqs[:8], peak_mags[:8]):  # Limit to top 8
         if freq < FREQ_MIN or freq > FREQ_MAX:
+            continue
+        
+        # Skip if too close to used frequency
+        if any(abs(freq - used_freq) < used_freq * 0.08 for used_freq in used_freqs):
             continue
             
         try:
             midi = librosa.hz_to_midi(freq)
             note_name = librosa.midi_to_note(midi, octave=True)
             
-            # Avoid showing multiple peaks for the same note name
-            # (which can happen with closely spaced harmonics)
+            # Conservative duplicate avoidance
             if note_name in seen_notes:
                 continue
                 
             labels.append((freq, note_name, mag))
             seen_notes.add(note_name)
+            used_freqs.add(freq)
             
             if len(labels) >= top_k:
                 break
                 
         except Exception:
-            # Skip frequencies that can't be converted to notes
             continue
     
     return labels
