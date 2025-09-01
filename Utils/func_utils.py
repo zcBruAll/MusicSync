@@ -23,16 +23,9 @@ def randomColor(color_name):
     if color_name == 'earth blue':
         return (0, random.randint(0, 50), random.randint(200, 225))
     
-#       Functions
 def curveCalculation(x):
     return 1080 - ((x / 3200) * (1920 - x) + 100)
     # 1080 - the result so that it creates the curve at the bottom of the screen and not at the top
-    
-def colorGreen():
-        return ((0, random.randint(150, 255), 0))
-
-def colorBlue():
-    return ((0, random.randint(0, 100), random.randint(225, 255)))
 
 def get_random_stars(stars):
     available = [s for s in stars if s.is_static()]  # filtre

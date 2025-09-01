@@ -1,5 +1,6 @@
 import pygame
 import random
+import math
 import Objects.Shapes
 
 
@@ -8,14 +9,16 @@ class Satellite():
         self.x = x
         self.y = y
         self.life_time = lifetime * 200
+        self.move_angle = 0
         
+        # colors for each parts
         self.body_color = body_color
         self.pannel_color = pannel_color
         
         # body dimensions
         self.size = body_width
 
-        # little wings dimensions (unchanged)
+        # little wings dimensions
         self.length = random.randint(20, 50)
         self.width = 20
 
@@ -26,6 +29,7 @@ class Satellite():
 
     def update(self):
         self.life_time -= 1
+        self.move_angle += 0.01
 
     def draw_body(self, x, y, isRectangle, width, height):
         all_points = []
@@ -190,14 +194,13 @@ class Satellite():
     def draw(self, surface):
         for tri in self.body:
             for coords in tri:
-                coords[0] += 3
-                coords[1] += 1
+                coords[0] += math.cos(self.move_angle) * 10
+                coords[1] += math.sin(self.move_angle) * 10
             pygame.draw.polygon(surface, self.body_color, tri)
-
 
         for tri in self.pannels:
             for coords in tri:
-                coords[0] += 3
-                coords[1] += 1
+                coords[0] += math.cos(self.move_angle) * 10
+                coords[1] += math.sin(self.move_angle) * 10
             pygame.draw.polygon(surface, self.pannel_color, tri)
             pygame.draw.polygon(surface, (255,255,255), tri, 2)
