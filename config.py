@@ -1,10 +1,10 @@
 # -------------------- Input/Output Configuration --------------------
-INPUT_FILE = "Sounds/SSB.mp3"  # File name and path of the input file
+INPUT_FILE = "Sounds/Gamme.mp3"  # File name and path of the input file
 OUTPUT_GIF = "Output/cqt_analysis.gif"     # File name and path of the output gif  
 OUTPUT_PIANO_MIDI = "Output/detected_notes0.mid"      # File name and path of the output MIDI file
 OUTPUT_TRUMPET_MIDI = "Output/detected_notes73.mid"
 OUTPUT_BOTH_MIDI = "Output/detected_notesboth.mid"
-REF_MIDI = "Sounds/SSB.mid"
+REF_MIDI = "Sounds/Gamme.mid"
 
 # -------------------- Processing Mode Configuration --------------------
 ENABLE_GRAPH_ANIMATION = False  # Set to True for visual analysis, False for faster processing

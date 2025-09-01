@@ -39,9 +39,9 @@ def init_simu():
     music_length = pretty_midi.PrettyMIDI(midi_path).get_end_time() * 1000
     # Generate objects
     earth = generate_earth(rows, cols, spacing, music_length)
-    moon = Moon(rows, cols, spacing, earth.center_x, earth.center_y * 2, orbit_radius=2150, moon_radius=200, collide_earth_ms=music_length)
+    moon = Moon(spacing, earth.center_x, earth.center_y * 2, orbit_radius=2150, moon_radius=200, collide_earth_ms=music_length)
     pygame.mixer.music.load(mp3_path)
-    pygame.mixer.music.play()
+    # pygame.mixer.music.play()
 
 def start_animation(mp3: str, midi: str):
     pygame.init()
@@ -180,7 +180,7 @@ def start_animation(mp3: str, midi: str):
         last_time = elapsed_time_s
 
         pygame.display.flip()
-        clock.tick(60)  # limits FPS to 60
-        # print(clock.get_fps())
+        clock.tick(30)  # limits FPS to 60
+        print(clock.get_fps())
 
     pygame.quit()
