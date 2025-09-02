@@ -60,12 +60,12 @@ class Moon(StellarObject):
             self.center_x = self.earth_x + math.cos(self.angle) * self.distance
             self.center_y = self.earth_y + math.sin(self.angle) * self.distance
             self.regenerate_triangles()
+            
+            self.randomOffset -= 1
 
             for y in range(len(self.triangles)):
                 for x in range(len(self.triangles[y])):
-                    n = self.noiseValue(x + int(self.center_x / self.spacing),
-                                        y + int(self.center_y / self.spacing),
-                                        scale=0.04)
+                    n = self.noiseValue(x, y, scale=0.04)
                     if n < 0.4:
                         color = (int(40 + 40 * n),) * 3
                     elif n < 0.55:
