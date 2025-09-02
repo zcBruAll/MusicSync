@@ -4,6 +4,7 @@ import random
 from Objects.Moon import *
 from Utils.Midi_Utils import *
 from Utils.Generators import *
+from config import FPS
 
 mp3_path = ""
 midi_path = ""
@@ -41,7 +42,7 @@ def init_simu():
     earth = generate_earth(rows, cols, spacing, music_length)
     moon = Moon(spacing, earth.center_x, earth.center_y * 2, orbit_radius=2150, moon_radius=200, collide_earth_ms=music_length)
     pygame.mixer.music.load(mp3_path)
-    # pygame.mixer.music.play()
+    pygame.mixer.music.play()
 
 def start_animation(mp3: str, midi: str):
     pygame.init()
@@ -69,7 +70,7 @@ def start_animation(mp3: str, midi: str):
         screen.fill((10, 10, 25))
         elapsed_time_s = round((pygame.time.get_ticks() - start_time) / 1000,2)
             
-        if music_length - (elapsed_time_s*1000) > 0:
+        if music_length - (elapsed_time_s*1000) > -5000:
             # Drawing background
             new_piano_notes = [note for note in pianoNotes
                         if last_time < note.start <= elapsed_time_s]
@@ -137,39 +138,10 @@ def start_animation(mp3: str, midi: str):
                     objects.remove(obj)
                 else:
                     obj.draw(screen)
-
-        if music_length - (elapsed_time_s*1000) <= 2000:
-            if big_bang_triangles == []:
-                cx, cy = earth.center_x, earth.center_y-300   # explosion center
-
-                for _ in range(5000):  # number of fragments
-                    # Start all points close to the center
-                    p1 = (cx + random.randint(-10, 10), cy + random.randint(-10, 10))
-                    p2 = (cx + random.randint(-10, 10), cy + random.randint(-10, 10))
-                    p3 = (cx + random.randint(-10, 10), cy + random.randint(-10, 10))
-
-                    # Velocity vector: random direction, outward from center
-                    angle = random.uniform(0, 2 * math.pi)
-                    speed = random.uniform(15, 40)
-                    vel = (math.cos(angle) * speed, math.sin(angle) * speed)
-
-                    big_bang_triangles.append({"points": [p1, p2, p3], "vel": vel})
-            
-            new_triangles = []
-            for tri in big_bang_triangles:
-                dx, dy = tri["vel"]
-                tri["points"] = [(x + dx, y + dy) for (x, y) in tri["points"]]
-
-                color = (
-                    random.randint(180, 255),
-                    random.randint(80, 200),
-                    random.randint(50, 150)
-                )
-
-                pygame.draw.polygon(screen, color, tri["points"])
-                new_triangles.append(tri)
-
-            big_bang_triangles = new_triangles
+                    
+        if music_length - (elapsed_time_s*1000) <= 0:
+            earth.trigger_explosion()
+            moon.trigger_explosion()
 
         if music_length - (elapsed_time_s*1000) <= -1000:
             init_simu()
@@ -180,7 +152,7 @@ def start_animation(mp3: str, midi: str):
         last_time = elapsed_time_s
 
         pygame.display.flip()
-        clock.tick(30)  # limits FPS to 60
+        clock.tick(FPS)  
         print(clock.get_fps())
 
     pygame.quit()
